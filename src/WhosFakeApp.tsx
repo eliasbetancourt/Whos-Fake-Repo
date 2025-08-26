@@ -178,7 +178,7 @@ export default function WhosFakeApp() {
   const [followers, setFollowers] = useState<string[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [error, setError] = useState<string>("");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(""); 
   const [tab, setTab] = useState<"unfollowers" | "pending">("unfollowers");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
