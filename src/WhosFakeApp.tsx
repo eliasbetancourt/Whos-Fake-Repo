@@ -1,6 +1,20 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 
+// --- Types ---
+interface StringListItem {
+  value?: string;
+  username?: string;
+  href?: string;
+}
+
+interface InstagramDataItem {
+  string_list_data?: StringListItem[];
+  username?: string;
+  title?: string;
+  [key: string]: unknown;
+}
+
 // --- Brand ---
 const brand = {
   blue: "#2563eb", // blue-600
@@ -51,11 +65,11 @@ function downloadCSV(filename: string, rows: string[][]) {
 
 const isLikelyUsername = (s: string) => /^[a-z0-9._]{2,30}$/i.test(s || "");
 
-function extractUsernames(json: any): string[] {
+function extractUsernames(json: unknown): string[] {
   const found = new Set<string>();
-  const handleStringListItem = (item: any) => {
+  const handleStringListItem = (item: InstagramDataItem) => {
     if (!item) return;
-    const sld = item.string_list_data || item?.["string_list_data"];
+    const sld = item.string_list_data || (item as Record<string, unknown>)["string_list_data"];
     if (Array.isArray(sld)) {
       for (const sub of sld) {
         const v = sub?.value || sub?.username || (sub?.href ? ("" + sub.href).split("/")[3] : undefined);
@@ -65,12 +79,13 @@ function extractUsernames(json: any): string[] {
     if (typeof item.username === "string" && isLikelyUsername(item.username)) found.add(item.username.toLowerCase());
     if (typeof item.title === "string" && isLikelyUsername(item.title)) found.add(item.title.toLowerCase());
   };
-  const traverse = (node: any) => {
+  const traverse = (node: unknown): void => {
     if (!node) return;
     if (Array.isArray(node)) return node.forEach(traverse);
     if (typeof node === "object") {
-      if (node.string_list_data || typeof node.username === "string" || typeof node.title === "string") handleStringListItem(node);
-      for (const k of Object.keys(node)) traverse(node[k]);
+      const objNode = node as InstagramDataItem;
+      if (objNode.string_list_data || typeof objNode.username === "string" || typeof objNode.title === "string") handleStringListItem(objNode);
+      for (const k of Object.keys(objNode)) traverse(objNode[k]);
     }
   };
   traverse(json);
@@ -84,33 +99,37 @@ async function parseFollowersFollowingFromZip(file: File): Promise<{ followers: 
   let accountId: string | null = null;
   const entries = Object.values(zip.files);
 
-  const profileEntry = entries.find((f: any) => /profile(_|\.)json$/i.test(f.name) || /personal_information\/profile\.json$/i.test(f.name));
+  const profileEntry = entries.find(f => /profile(_|\.)json$/i.test(f.name) || /personal_information\/profile\.json$/i.test(f.name));
   if (profileEntry) {
     try {
-      const text = await (profileEntry as any).async("text");
-      const j = JSON.parse(text);
+      const text = await profileEntry.async("text");
+      const j = JSON.parse(text) as InstagramDataItem;
       const u = j?.username || j?.string_list_data?.[0]?.value;
       if (typeof u === "string" && isLikelyUsername(u)) accountId = u.toLowerCase();
-    } catch { }
+    } catch { 
+      // Ignore parsing errors for profile
+    }
   }
 
-  const handle = async (f: any, target: Set<string>) => {
+  const handle = async (f: JSZip.JSZipObject, target: Set<string>) => {
     try {
       const txt = await f.async("text");
       const json = JSON.parse(txt);
       for (const u of extractUsernames(json)) target.add(u);
-    } catch { }
+    } catch { 
+      // Ignore parsing errors for individual files
+    }
   };
 
-  const followerFiles = entries.filter((f: any) => /followers.*\.json$/i.test(f.name) || /connections\/followers.*\.json$/i.test(f.name));
-  const followingFiles = entries.filter((f: any) => /following.*\.json$/i.test(f.name) || /connections\/following.*\.json$/i.test(f.name) || /relationships_following.*\.json$/i.test(f.name));
-  const genericConn = entries.filter((f: any) => /followers_and_following\/.+\.json$/i.test(f.name));
+  const followerFiles = entries.filter(f => /followers.*\.json$/i.test(f.name) || /connections\/followers.*\.json$/i.test(f.name));
+  const followingFiles = entries.filter(f => /following.*\.json$/i.test(f.name) || /connections\/following.*\.json$/i.test(f.name) || /relationships_following.*\.json$/i.test(f.name));
+  const genericConn = entries.filter(f => /followers_and_following\/.+\.json$/i.test(f.name));
 
   for (const f of followerFiles) await handle(f, followers);
   for (const f of followingFiles) await handle(f, following);
   if (followers.size === 0 && following.size === 0) for (const f of genericConn) await handle(f, following);
   if (followers.size === 0 && following.size === 0) {
-    const allJsons = entries.filter((f: any) => /\.json$/i.test(f.name));
+    const allJsons = entries.filter(f => /\.json$/i.test(f.name));
     for (const f of allJsons) await handle(f, following);
   }
   return { followers: Array.from(followers), following: Array.from(following), accountId };
@@ -204,10 +223,10 @@ export default function WhosFakeApp() {
   } else if (isJson) {
         // Try to parse a single JSON file
         const text = await file.text();
-        let json: any;
+        let json: unknown;
         try {
           json = JSON.parse(text);
-        } catch (err) {
+        } catch {
           setError("Could not parse JSON file.");
           setStatus("");
           return;
@@ -233,7 +252,7 @@ export default function WhosFakeApp() {
         setError("Unsupported file type. Please upload a ZIP, JSON, or HTML file.");
         setStatus("");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
       setError("Failed to read file. Is it the original Instagram download (ZIP or JSON format)?");
       setStatus("");
