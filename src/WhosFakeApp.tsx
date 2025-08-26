@@ -19,7 +19,9 @@ interface InstagramDataItem {
 const brand = {
   blue: "#2563eb", // blue-600
   blueLight: "#60a5fa",
-  bg: "bg-[#0b1220]",
+  purple: "#9333ea", // purple-600
+  purpleLight: "#a855f7", // purple-500
+  bg: "bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900",
 };
 
 function MagnifierLogo({ size = 28 }: { size?: number }) {
@@ -50,6 +52,14 @@ function MagnifierLogo({ size = 28 }: { size?: number }) {
   );
 }
 
+function LockIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M6 10v-4a6 6 0 1 1 12 0v4h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1zm2 0h8v-4a4 4 0 1 0-8 0v4z"/>
+    </svg>
+  );
+}
+
 // Utility: download CSV in-browser
 function downloadCSV(filename: string, rows: string[][]) {
   // Join cells by comma and rows by newline. Previously had an unterminated string; fixed to "\n".
@@ -61,6 +71,15 @@ function downloadCSV(filename: string, rows: string[][]) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
+}
+
+// Utility: format file size
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 const isLikelyUsername = (s: string) => /^[a-z0-9._]{2,30}$/i.test(s || "");
@@ -193,12 +212,14 @@ async function parseFollowersFollowingFromZip(file: File): Promise<{ followers: 
 
 export default function WhosFakeApp() {
   const [status, setStatus] = useState<string>("");
+  const [processingStep, setProcessingStep] = useState<string>("");
   const [account, setAccount] = useState<string | null>(null);
   const [followers, setFollowers] = useState<string[]>([]);
   const [following, setFollowing] = useState<string[]>([]);
   const [error, setError] = useState<string>("");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"unfollowers" | "pending">("unfollowers");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFiles = useCallback(async (files: FileList | null) => {
@@ -206,7 +227,9 @@ export default function WhosFakeApp() {
     const file = files[0];
     setError("");
     setFollowers([]); setFollowing([]);
-    setStatus("Parsing file… (all in your browser)");
+    setProcessingStep("📁 Reading file...");
+    setStatus("Processing your Instagram data (100% local)");
+    setUploadedFiles([file]); // Track the uploaded file
 
   const isZip = file.name.toLowerCase().endsWith('.zip');
   const isJson = file.name.toLowerCase().endsWith('.json');
@@ -214,13 +237,18 @@ export default function WhosFakeApp() {
 
     try {
   if (isZip) {
+        setProcessingStep("📦 Extracting ZIP archive...");
         const { followers, following, accountId } = await parseFollowersFollowingFromZip(file);
+        setProcessingStep("👥 Analyzing followers and following...");
         setFollowers(followers);
         setFollowing(following);
         setAccount(accountId);
+        setProcessingStep("✅ Analysis complete!");
         setStatus("");
+        setTimeout(() => setProcessingStep(""), 2000);
         if (followers.length === 0 && following.length === 0) setError("Could not find followers/following data in this ZIP. Make sure you requested 'Followers and Following' in JSON.");
   } else if (isJson) {
+        setProcessingStep("📄 Parsing JSON file...");
         // Try to parse a single JSON file
         const text = await file.text();
         let json: unknown;
@@ -229,16 +257,21 @@ export default function WhosFakeApp() {
         } catch {
           setError("Could not parse JSON file.");
           setStatus("");
+          setProcessingStep("");
           return;
         }
+        setProcessingStep("🔍 Extracting usernames...");
         // Try to extract usernames from the JSON
         const followers = extractUsernames(json);
         setFollowers(followers);
         setFollowing([]);
         setAccount(null);
+        setProcessingStep("✅ Parsing complete!");
         setStatus("");
+        setTimeout(() => setProcessingStep(""), 2000);
         if (followers.length === 0) setError("No usernames found in this JSON file.");
       } else if (isHtml) {
+        setProcessingStep("🌐 Parsing HTML file...");
         // Try to parse usernames from an HTML file
         const text = await file.text();
         // Very basic HTML parsing: look for Instagram profile links
@@ -246,16 +279,20 @@ export default function WhosFakeApp() {
         setFollowers(usernames);
         setFollowing([]);
         setAccount(null);
+        setProcessingStep("✅ Parsing complete!");
         setStatus("");
+        setTimeout(() => setProcessingStep(""), 2000);
         if (usernames.length === 0) setError("No Instagram usernames found in this HTML file.");
       } else {
         setError("Unsupported file type. Please upload a ZIP, JSON, or HTML file.");
         setStatus("");
+        setProcessingStep("");
       }
     } catch (e: unknown) {
       console.error(e);
       setError("Failed to read file. Is it the original Instagram download (ZIP or JSON format)?");
       setStatus("");
+      setProcessingStep("");
     }
   }, []);
 
@@ -278,12 +315,28 @@ export default function WhosFakeApp() {
     downloadCSV(`whosfake_unfollowers_${account || "account"}.csv`, rows);
   };
 
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    if (uploadedFiles.length === 1) {
+      // If removing the last file, reset everything
+      setFollowers([]);
+      setFollowing([]);
+      setAccount(null);
+      setError("");
+      setStatus("");
+      setProcessingStep("");
+    }
+  };
+
   return (
     <div className={`${brand.bg} min-h-screen text-white`}>
       {/* Top bar */}
       <header className="mx-auto max-w-6xl px-4 py-5 flex items-center justify-between">
         <MagnifierLogo />
-        <div className="text-xs opacity-80">Private • Local‑only • No sign‑in</div>
+        <div className="text-xs opacity-80 flex items-center gap-1">
+          <LockIcon size={12} />
+          Private • Local‑only • No sign‑in
+        </div>
       </header>
 
       {/* FreeConvert-like centered card */}
@@ -309,6 +362,41 @@ export default function WhosFakeApp() {
           ))}
         </div>
 
+        {/* Instructions */}
+        <section className="mt-8 rounded-2xl p-6 bg-white/5 border border-white/10">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            📋 How to get your Instagram data
+          </h3>
+          <div className="grid md:grid-cols-3 gap-4 text-sm">
+            <div className="flex gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">1</div>
+              <div>
+                <div className="font-medium text-white">Request your data</div>
+                <div className="text-white/70 mt-1">Go to Instagram Settings → Security → Download data</div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">2</div>
+              <div>
+                <div className="font-medium text-white">Select JSON format</div>
+                <div className="text-white/70 mt-1">Choose "JSON" and include "Followers and following"</div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">3</div>
+              <div>
+                <div className="font-medium text-white">Upload your ZIP</div>
+                <div className="text-white/70 mt-1">Download the ZIP file and upload it below</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <div className="text-orange-200 text-sm">
+              <strong>⚠️ Note:</strong> The data request can take up to 48 hours. Make sure to request "Followers and following" data in JSON format.
+            </div>
+          </div>
+        </section>
+
         {/* Upload box */}
         <section className="mt-6 rounded-2xl p-8 shadow-2xl border border-white/10 bg-white/5">
           <div className="flex items-center justify-center">
@@ -327,18 +415,80 @@ export default function WhosFakeApp() {
             className="mt-6 border-2 border-dashed border-white/20 rounded-2xl p-12 text-center bg-white/5 hover:bg-white/10 transition"
           >
             <div className="text-white/90">Or drag & drop your Instagram ZIP, JSON, or HTML here</div>
-            {status && <div className="mt-3 text-sm text-white/70">{status}</div>}
-            {error && <div className="mt-3 text-sm text-red-300">{error}</div>}
+            {status && (
+              <div className="mt-4 p-3 rounded-lg bg-blue-500/20 border border-blue-500/30">
+                <div className="text-blue-200 font-medium">{status}</div>
+                {processingStep && <div className="text-blue-200/80 text-sm mt-1">{processingStep}</div>}
+              </div>
+            )}
+            {error && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/20 border border-red-500/30">
+                <div className="text-red-200 text-sm">{error}</div>
+              </div>
+            )}
           </div>
           <div className="text-center text-xs text-white/60 mt-3">Max file size depends on your browser. Everything stays local.</div>
         </section>
 
+        {/* Uploaded files preview */}
+        {uploadedFiles.length > 0 && (
+          <section className="mt-6">
+            <h3 className="text-lg font-semibold mb-3">Uploaded Files</h3>
+            <div className="space-y-2">
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-3 rounded-xl bg-white/10 border border-white/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                      📁
+                    </div>
+                    <div>
+                      <div className="font-medium text-white">{file.name}</div>
+                      <div className="text-sm text-white/70">{formatFileSize(file.size)}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/30 flex items-center justify-center text-red-300 hover:text-red-200 transition"
+                    title="Remove file"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Results area */}
         <section className="mt-10">
+          {/* Summary cards */}
+          {(followers.length > 0 || following.length > 0) && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 rounded-xl bg-white/10 border border-white/20">
+                <div className="text-2xl font-bold text-white">{followers.length}</div>
+                <div className="text-sm text-white/70">Followers</div>
+              </div>
+              <div className="p-4 rounded-xl bg-white/10 border border-white/20">
+                <div className="text-2xl font-bold text-white">{following.length}</div>
+                <div className="text-sm text-white/70">Following</div>
+              </div>
+              <div className="p-4 rounded-xl bg-white/10 border border-white/20">
+                <div className="text-2xl font-bold text-red-300">{unfollowers.length}</div>
+                <div className="text-sm text-white/70">Not Following Back</div>
+              </div>
+              <div className="p-4 rounded-xl bg-white/10 border border-white/20">
+                <div className="text-2xl font-bold text-green-300">
+                  {following.length > 0 ? Math.round((followers.length / following.length) * 100) : 0}%
+                </div>
+                <div className="text-sm text-white/70">Follow Back Rate</div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <h2 className="text-xl font-semibold">Results</h2>
-              <p className="text-white/70 text-sm">Account: {account || "(from ZIP)"} • Followers: {followers.length} • Following: {following.length} {tab === "unfollowers" && <>• Not following back: {unfollowers.length}</>}</p>
+              <p className="text-white/70 text-sm">Account: {account || "(from ZIP)"} {tab === "unfollowers" && unfollowers.length > 0 && <>• Showing {query ? filtered.length : unfollowers.length} unfollowers</>}</p>
             </div>
             {tab === "unfollowers" && unfollowers.length > 0 && (
               <div className="flex gap-3">
@@ -399,17 +549,26 @@ export default function WhosFakeApp() {
 
         {/* Feature cards */}
         <section className="mt-12 grid md:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Local‑only</h3>
-            <p className="text-sm text-white/80 mt-1">Your ZIP never leaves your device. Parsing and results are computed in your browser.</p>
+          <div className="p-5 rounded-2xl bg-white/10 border border-white/10 hover:bg-white/15 transition">
+            <div className="flex items-center gap-2 mb-2">
+              <LockIcon size={16} />
+              <h3 className="font-semibold">100% Private</h3>
+            </div>
+            <p className="text-sm text-white/80">Your files never leave your device. All processing happens locally in your browser for complete privacy.</p>
           </div>
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Simple like FreeConvert</h3>
-            <p className="text-sm text-white/80 mt-1">Clean central card, big button, easy drag‑and‑drop.</p>
+          <div className="p-5 rounded-2xl bg-white/10 border border-white/10 hover:bg-white/15 transition">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">⚡</span>
+              <h3 className="font-semibold">Instant Results</h3>
+            </div>
+            <p className="text-sm text-white/80">Upload your Instagram data and get detailed insights immediately with our fast, client-side processing.</p>
           </div>
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Future‑ready</h3>
-            <p className="text-sm text-white/80 mt-1">Built to add history, engagement scores, and multi‑account later.</p>
+          <div className="p-5 rounded-2xl bg-white/10 border border-white/10 hover:bg-white/15 transition">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📊</span>
+              <h3 className="font-semibold">Detailed Analytics</h3>
+            </div>
+            <p className="text-sm text-white/80">Get comprehensive follower insights, unfollower lists, and export data for further analysis.</p>
           </div>
         </section>
 
