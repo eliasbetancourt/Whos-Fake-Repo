@@ -1,401 +1,301 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import JSZip from "jszip";
 
-// --- Brand ---
-const brand = {
-  blue: "#2563eb", // blue-600
-  blueLight: "#60a5fa",
-  bg: "bg-[#0b1220]",
-};
+import React, { useRef, useState } from "react";
 
-function MagnifierLogo({ size = 28 }: { size?: number }) {
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
-        <defs>
-          <linearGradient id="wfGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={brand.blueLight} />
-            <stop offset="100%" stopColor={brand.blue} />
-          </linearGradient>
-        </defs>
-        <g fill="url(#wfGrad)">
-          <circle cx="28" cy="28" r="22" />
-          <rect x="38" y="38" width="22" height="10" rx="5" transform="rotate(45 38 38)" />
-        </g>
-        {/* crack */}
-        <g stroke="#ffffff" strokeWidth={2} strokeLinecap="round">
-          <path d="M12 28 L28 28" />
-          <path d="M28 12 L28 28" />
-          <path d="M18 18 L28 28 L38 18" />
-          <path d="M20 36 L28 28 L40 34" />
-          <path d="M30 10 L34 22" />
-        </g>
-      </svg>
-      <span className="font-semibold tracking-tight" style={{ color: brand.blue }}>WhosFake</span>
-    </div>
-  );
+// Utility for formatting file sizes
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Utility: download CSV in-browser
-function downloadCSV(filename: string, rows: string[][]) {
-  // Join cells by comma and rows by newline. Previously had an unterminated string; fixed to "\n".
-  const csv = rows
-    .map(r => r.map(v => '"' + (v ?? '').replace(/"/g, '""') + '"').join(","))
-    .join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }); // explicit BOM
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-
-const isLikelyUsername = (s: string) => /^[a-z0-9._]{2,30}$/i.test(s || "");
-
-function extractUsernames(json: any): string[] {
-  const found = new Set<string>();
-  const handleStringListItem = (item: any) => {
-    if (!item) return;
-    const sld = item.string_list_data || item?.["string_list_data"];
-    if (Array.isArray(sld)) {
-      for (const sub of sld) {
-        const v = sub?.value || sub?.username || (sub?.href ? ("" + sub.href).split("/")[3] : undefined);
-        if (typeof v === "string" && isLikelyUsername(v)) found.add(v.toLowerCase());
-      }
-    }
-    if (typeof item.username === "string" && isLikelyUsername(item.username)) found.add(item.username.toLowerCase());
-    if (typeof item.title === "string" && isLikelyUsername(item.title)) found.add(item.title.toLowerCase());
-  };
-  const traverse = (node: any) => {
-    if (!node) return;
-    if (Array.isArray(node)) return node.forEach(traverse);
-    if (typeof node === "object") {
-      if (node.string_list_data || typeof node.username === "string" || typeof node.title === "string") handleStringListItem(node);
-      for (const k of Object.keys(node)) traverse(node[k]);
-    }
-  };
-  traverse(json);
-  return Array.from(found);
-}
-
-async function parseFollowersFollowingFromZip(file: File): Promise<{ followers: string[]; following: string[]; accountId: string | null; }> {
-  const zip = await JSZip.loadAsync(file);
-  const followers: Set<string> = new Set();
-  const following: Set<string> = new Set();
-  let accountId: string | null = null;
-  const entries = Object.values(zip.files);
-
-  const profileEntry = entries.find((f: any) => /profile(_|\.)json$/i.test(f.name) || /personal_information\/profile\.json$/i.test(f.name));
-  if (profileEntry) {
-    try {
-      const text = await (profileEntry as any).async("text");
-      const j = JSON.parse(text);
-      const u = j?.username || j?.string_list_data?.[0]?.value;
-      if (typeof u === "string" && isLikelyUsername(u)) accountId = u.toLowerCase();
-    } catch { }
-  }
-
-  const handle = async (f: any, target: Set<string>) => {
-    try {
-      const txt = await f.async("text");
-      const json = JSON.parse(txt);
-      for (const u of extractUsernames(json)) target.add(u);
-    } catch { }
-  };
-
-  const followerFiles = entries.filter((f: any) => /followers.*\.json$/i.test(f.name) || /connections\/followers.*\.json$/i.test(f.name));
-  const followingFiles = entries.filter((f: any) => /following.*\.json$/i.test(f.name) || /connections\/following.*\.json$/i.test(f.name) || /relationships_following.*\.json$/i.test(f.name));
-  const genericConn = entries.filter((f: any) => /followers_and_following\/.+\.json$/i.test(f.name));
-
-  for (const f of followerFiles) await handle(f, followers);
-  for (const f of followingFiles) await handle(f, following);
-  if (followers.size === 0 && following.size === 0) for (const f of genericConn) await handle(f, following);
-  if (followers.size === 0 && following.size === 0) {
-    const allJsons = entries.filter((f: any) => /\.json$/i.test(f.name));
-    for (const f of allJsons) await handle(f, following);
-  }
-  return { followers: Array.from(followers), following: Array.from(following), accountId };
-}
-
-// ---------------- Self-tests (run once in the browser console) ----------------
-(function runWhosFakeSelfTests() {
-  try {
-    const tests: Array<{ name: string; run: () => void }> = [];
-
-    // Test: isLikelyUsername
-    tests.push({
-      name: "isLikelyUsername basics",
-      run: () => {
-        console.assert(isLikelyUsername("alice"));
-        console.assert(isLikelyUsername("a.l_i.ce"));
-        console.assert(!isLikelyUsername("A"));
-        console.assert(!isLikelyUsername("bad space"));
-      }
-    });
-
-    // Test: extractUsernames with common shapes
-    tests.push({
-      name: "extractUsernames from string_list_data + username/title",
-      run: () => {
-        const json = [
-          { string_list_data: [{ value: "alice", href: "https://instagram.com/alice/" }] },
-          { username: "Bob" },
-          { title: "charlie" },
-          { nested: { arr: [{ string_list_data: [{ value: "dora" }] }] } }
-        ];
-        const got = extractUsernames(json).sort();
-        const want = ["alice", "bob", "charlie", "dora"].sort();
-        console.assert(JSON.stringify(got) === JSON.stringify(want), `got ${got} want ${want}`);
-      }
-    });
-
-    // Test: downloadCSV (structure only)
-    tests.push({
-      name: "downloadCSV encoding/joins",
-      run: () => {
-        const rows = [["a", "b"], ["c,d", 'e"f']];
-        const csv = rows
-          .map(r => r.map(v => '"' + (v ?? '').replace(/"/g, '""') + '"').join(","))
-          .join("\n");
-        // Should contain escaped quotes and commas preserved
-        console.assert(csv.includes('"c,d"'));
-        console.assert(csv.includes('"e""f"'));
-        console.assert(csv.split("\n").length === 2);
-      }
-    });
-
-    console.groupCollapsed("WhosFake self-tests");
-    for (const t of tests) { t.run(); console.log("✓", t.name); }
-    console.groupEnd();
-  } catch (err) {
-    console.warn("Self-tests failed:", err);
-  }
-})();
-// ---------------------------------------------------------------------------
+const supportedTypes = ['.zip', '.json'];
 
 export default function WhosFakeApp() {
-  const [status, setStatus] = useState<string>("");
-  const [account, setAccount] = useState<string | null>(null);
-  const [followers, setFollowers] = useState<string[]>([]);
-  const [following, setFollowing] = useState<string[]>([]);
-  const [error, setError] = useState<string>("");
-  const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"unfollowers" | "pending">("unfollowers");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [warning, setWarning] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressText, setProgressText] = useState('');
+  const [results, setResults] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFiles = useCallback(async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setError("");
-    setFollowers([]); setFollowing([]);
-    setStatus("Parsing file… (all in your browser)");
-
-  const isZip = file.name.toLowerCase().endsWith('.zip');
-  const isJson = file.name.toLowerCase().endsWith('.json');
-  const isHtml = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm');
-
-    try {
-  if (isZip) {
-        const { followers, following, accountId } = await parseFollowersFollowingFromZip(file);
-        setFollowers(followers);
-        setFollowing(following);
-        setAccount(accountId);
-        setStatus("");
-        if (followers.length === 0 && following.length === 0) setError("Could not find followers/following data in this ZIP. Make sure you requested 'Followers and Following' in JSON.");
-  } else if (isJson) {
-        // Try to parse a single JSON file
-        const text = await file.text();
-        let json: any;
-        try {
-          json = JSON.parse(text);
-        } catch (err) {
-          setError("Could not parse JSON file.");
-          setStatus("");
-          return;
-        }
-        // Try to extract usernames from the JSON
-        const followers = extractUsernames(json);
-        setFollowers(followers);
-        setFollowing([]);
-        setAccount(null);
-        setStatus("");
-        if (followers.length === 0) setError("No usernames found in this JSON file.");
-      } else if (isHtml) {
-        // Try to parse usernames from an HTML file
-        const text = await file.text();
-        // Very basic HTML parsing: look for Instagram profile links
-        const usernames = Array.from(text.matchAll(/instagram\.com\/(?!accounts|explore|direct|about|developer|legal|privacy|terms|p|stories|reel|tv|[\w-]+\?)([a-zA-Z0-9._]{2,30})/g)).map(m => m[1]?.toLowerCase()).filter(Boolean);
-        setFollowers(usernames);
-        setFollowing([]);
-        setAccount(null);
-        setStatus("");
-        if (usernames.length === 0) setError("No Instagram usernames found in this HTML file.");
-      } else {
-        setError("Unsupported file type. Please upload a ZIP, JSON, or HTML file.");
-        setStatus("");
-      }
-    } catch (e: any) {
-      console.error(e);
-      setError("Failed to read file. Is it the original Instagram download (ZIP or JSON format)?");
-      setStatus("");
-    }
-  }, []);
-
-  const onDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }, [handleFiles]);
-  const onSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => { handleFiles(e.target.files); }, [handleFiles]);
-
-  const unfollowers = useMemo(() => {
-    const fset = new Set(followers);
-    return following.filter(u => !fset.has(u));
-  }, [followers, following]);
-
-  const filtered = useMemo(() => {
-    if (!query) return unfollowers;
-    const q = query.toLowerCase();
-    return unfollowers.filter(u => u.includes(q));
-  }, [query, unfollowers]);
-
-  const handleCSV = () => {
-    const rows = [["username", "profile_url"]].concat(filtered.map(u => [u, `https://instagram.com/${u}`]));
-    downloadCSV(`whosfake_unfollowers_${account || "account"}.csv`, rows);
+  // File selection and drag/drop handlers
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    // Filter out .DS_Store files
+    const newFiles = Array.from(files).filter(f => f.name !== '.DS_Store');
+    setSelectedFiles(prev => {
+      const names = new Set(prev.map(f => f.name));
+      return [...prev, ...newFiles.filter(f => !names.has(f.name))];
+    });
   };
 
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+  // Recursively read directory entries (Chromium only)
+  const getAllFilesFromDataTransferItems = async (items: DataTransferItemList): Promise<File[]> => {
+    const files: File[] = [];
+    const traverseFileTree = async (item: any, path = "") => {
+      if (item.isFile) {
+        await new Promise<void>(resolve => {
+          item.file((file: File) => {
+            // Attach relativePath for display if available
+            if (path) Object.defineProperty(file, 'webkitRelativePath', { value: path + file.name });
+            files.push(file);
+            resolve();
+          });
+        });
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        await new Promise<void>((resolve, reject) => {
+          const readEntries = () => {
+            dirReader.readEntries(async (entries: any[]) => {
+              if (!entries.length) {
+                resolve();
+                return;
+              }
+              for (const entry of entries) {
+                await traverseFileTree(entry, path + item.name + "/");
+              }
+              readEntries();
+            });
+          };
+          readEntries();
+        });
+      }
+    };
+    const entries: any[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry) entries.push(entry);
+    }
+    for (const entry of entries) {
+      await traverseFileTree(entry);
+    }
+    return files;
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    // Prefer advanced folder support if available
+    const items = e.dataTransfer.items;
+    if (items && items.length && items[0].webkitGetAsEntry) {
+      const allFiles = await getAllFilesFromDataTransferItems(items);
+      handleFileSelect({ length: allFiles.length, ...allFiles } as FileList);
+    } else {
+      handleFileSelect(e.dataTransfer.files);
+    }
+  };
+
+  // Validation
+  const hasUnsupported = selectedFiles.some(
+    file => !supportedTypes.some(type => file.name.toLowerCase().endsWith(type))
+  );
+
+  // Processing simulation (replace with real logic)
+  const handleProcess = async () => {
+    setProcessing(true);
+    setProgress(0);
+    setProgressText('Reading files...');
+    const steps = [
+      { progress: 20, text: 'Reading files...' },
+      { progress: 40, text: 'Parsing Instagram data...' },
+      { progress: 60, text: 'Analyzing followers...' },
+      { progress: 80, text: 'Detecting unfollowers...' },
+      { progress: 100, text: 'Analysis complete!' }
+    ];
+    for (const step of steps) {
+      await new Promise(res => setTimeout(res, 800));
+      setProgress(step.progress);
+      setProgressText(step.text);
+    }
+    // Mock results
+    setTimeout(() => {
+      setResults({
+        summary: {
+          totalFollowers: 847,
+          totalFollowing: 923,
+          unfollowers: 23,
+          newFollowers: 12
+        },
+        unfollowers: [
+          { username: 'john_doe_123', displayName: 'John Doe', status: 'Unfollowed', lastSeen: '2 days ago' },
+          { username: 'jane_smith', displayName: 'Jane Smith', status: 'Unfollowed', lastSeen: '1 week ago' },
+          { username: 'mike_wilson', displayName: 'Mike Wilson', status: 'Unfollowed', lastSeen: '3 days ago' }
+        ]
+      });
+      setProcessing(false);
+    }, 500);
+  };
+
+  // UI
   return (
-    <div className={`${brand.bg} min-h-screen text-white`}>
-      {/* Top bar */}
-      <header className="mx-auto max-w-6xl px-4 py-5 flex items-center justify-between">
-        <MagnifierLogo />
-        <div className="text-xs opacity-80">Private • Local‑only • No sign‑in</div>
-      </header>
-
-      {/* FreeConvert-like centered card */}
-      <main className="mx-auto max-w-4xl px-4 pb-24">
-        <h1 className="text-center text-4xl md:text-5xl font-bold">Upload your Instagram ZIP</h1>
-        <p className="text-center text-white/80 mt-3">Convert your ZIP into insights — safely on your device.</p>
-
-        {/* Tabs */}
-        <div className="mt-8 flex items-center justify-center gap-2">
-          {(
-            [
-              { id: "unfollowers", label: "Unfollowers" },
-              { id: "pending", label: "Pending Requests" },
-            ] as const
-          ).map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${tab === t.id ? "bg-white text-slate-900" : "bg-white/10 border-white/20 text-white/90 hover:bg-white/20"}`}
-            >
-              {t.label}
-            </button>
-          ))}
+    <div style={{ fontFamily: 'system-ui, sans-serif', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '100vh', color: '#333', width: '100vw', minWidth: 0 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2vw', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ textAlign: 'center', marginBottom: '4vw', paddingTop: '4vw' }}>
+          <h1 style={{ color: 'white', fontSize: '3rem', fontWeight: 700, marginBottom: 10, textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>WhosFake</h1>
+          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.2rem', maxWidth: 600, margin: '0 auto' }}>
+            Discover who unfollowed you on Instagram with complete privacy and security
+          </p>
         </div>
-
-        {/* Upload box */}
-        <section className="mt-6 rounded-2xl p-8 shadow-2xl border border-white/10 bg-white/5">
-          <div className="flex items-center justify-center">
-            <button
-              onClick={() => inputRef.current?.click()}
-              className="px-5 py-3 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: brand.blue }}
-            >
-              Choose Files
-            </button>
-            <input ref={inputRef} type="file" accept=".zip,.json,.html,.htm,application/zip,application/json,text/html" className="hidden" onChange={onSelect} />
-          </div>
+  <div style={{ background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.1)', padding: '4vw 2vw', margin: '4vw auto', maxWidth: 800, minWidth: 0, width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
           <div
-            onDrop={onDrop}
-            onDragOver={(e) => e.preventDefault()}
-            className="mt-6 border-2 border-dashed border-white/20 rounded-2xl p-12 text-center bg-white/5 hover:bg-white/10 transition"
+            style={{ border: '3px dashed #e0e7ff', borderRadius: 16, padding: '4vw 2vw', margin: '2vw 0', background: dragOver ? '#e0e7ff' : '#f8faff', cursor: 'pointer', transition: 'all 0.3s', position: 'relative', minWidth: 0 }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <div className="text-white/90">Or drag & drop your Instagram ZIP, JSON, or HTML here</div>
-            {status && <div className="mt-3 text-sm text-white/70">{status}</div>}
-            {error && <div className="mt-3 text-sm text-red-300">{error}</div>}
-          </div>
-          <div className="text-center text-xs text-white/60 mt-3">Max file size depends on your browser. Everything stays local.</div>
-        </section>
-
-        {/* Results area */}
-        <section className="mt-10">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div style={{ fontSize: '4rem', color: '#667eea', marginBottom: 20 }}>📁</div>
             <div>
-              <h2 className="text-xl font-semibold">Results</h2>
-              <p className="text-white/70 text-sm">Account: {account || "(from ZIP)"} • Followers: {followers.length} • Following: {following.length} {tab === "unfollowers" && <>• Not following back: {unfollowers.length}</>}</p>
+              <h3 style={{ fontSize: '1.8rem', color: '#333', marginBottom: 10, fontWeight: 600 }}>Upload Your Instagram Data</h3>
+              <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: 20 }}>Drag and drop your Instagram ZIP file here, or click to browse</p>
+              <button className="choose-files-btn" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', padding: '16px 32px', borderRadius: 12, fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)' }} onClick={e => { e.stopPropagation(); fileInputRef.current?.click(); }}>Choose Files</button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".zip,.json"
+                multiple
+                style={{ display: 'none' }}
+                // @ts-ignore
+                webkitdirectory="true"
+                directory="true"
+                onChange={e => handleFileSelect(e.target.files)}
+              />
             </div>
-            {tab === "unfollowers" && unfollowers.length > 0 && (
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search username…"
-                  className="px-3 py-2 rounded-xl bg-white text-slate-800 placeholder-slate-400 w-56"
-                />
-                <button onClick={handleCSV} className="px-3 py-2 rounded-xl bg-white text-slate-800 font-medium hover:bg-slate-100">Export CSV</button>
-              </div>
-            )}
           </div>
-
-          <div className="mt-4 overflow-hidden rounded-2xl shadow-xl border border-white/10">
-            {tab === "unfollowers" ? (
-              <table className="w-full text-left bg-white">
+          <div style={{ background: '#f0f9ff', border: '1px solid #e0f2fe', borderRadius: 12, padding: '2vw', margin: '2vw 0', display: 'flex', alignItems: 'center', gap: 15, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '2rem', color: '#0ea5e9' }}>🔒</div>
+            <div style={{ textAlign: 'left' }}>
+              <h4 style={{ color: '#0c4a6e', marginBottom: 5, fontWeight: 600 }}>100% Private & Secure</h4>
+              <p style={{ color: '#0369a1', fontSize: '0.95rem' }}>All processing happens on your device. No files are uploaded to our servers.</p>
+            </div>
+          </div>
+          {selectedFiles.length > 0 && (
+            <div style={{ margin: '2vw 0', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3>Selected Files</h3>
+                <button
+                  style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 16px', fontSize: '0.95rem', cursor: 'pointer', color: '#dc2626', borderColor: '#fecaca', fontWeight: 600 }}
+                  onClick={() => setSelectedFiles([])}
+                >Remove All</button>
+              </div>
+              {selectedFiles.map((file, idx) => {
+                const isSupported = supportedTypes.some(type => file.name.toLowerCase().endsWith(type));
+                return (
+                  <div key={file.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1vw', border: '1px solid #e5e7eb', borderRadius: 8, marginBottom: '0.5vw', background: isSupported ? 'white' : '#fef2f2', borderColor: isSupported ? '#e5e7eb' : '#fecaca', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: '1.2rem' }}>{isSupported ? '📄' : '❌'}</span>
+                      <span>{file.name}</span>
+                      <span style={{ color: '#666', fontSize: '0.85rem' }}>({formatFileSize(file.size)})</span>
+                    </div>
+                    <div>
+                      <button style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer', color: '#dc2626', borderColor: '#fecaca' }} onClick={() => handleRemoveFile(idx)}>Remove</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white', border: 'none', padding: '1.2vw 3vw', borderRadius: 12, fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer', marginTop: '1vw', boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)', opacity: hasUnsupported ? 0.5 : 1 }}
+                disabled={hasUnsupported}
+                onClick={handleProcess}
+              >Continue Processing</button>
+              {hasUnsupported && (
+                <div style={{ background: '#fef3cd', border: '1px solid #fde68a', borderRadius: 8, padding: '1vw', margin: '1vw 0', color: '#92400e' }}>
+                  <span style={{ marginRight: 10 }}>⚠️</span>Some files are not supported. Please remove them before continuing.
+                </div>
+              )}
+            </div>
+          )}
+          {processing && (
+            <div style={{ margin: '2vw 0' }}>
+              <div style={{ background: '#e5e7eb', borderRadius: 10, height: 8, overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', height: '100%', width: `${progress}%`, transition: 'width 0.3s' }} />
+              </div>
+              <div style={{ textAlign: 'center', marginTop: '1vw', color: '#666', fontSize: '0.95rem' }}>{progressText}</div>
+            </div>
+          )}
+          {results && (
+            <div style={{ marginTop: '3vw' }}>
+              <h3>Analysis Results</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2vw', marginBottom: '2vw' }}>
+                <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{results.summary.unfollowers}</div>
+                  <div style={{ color: '#666' }}>Unfollowers</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }}>{results.summary.newFollowers}</div>
+                  <div style={{ color: '#666' }}>New Followers</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#667eea' }}>{results.summary.totalFollowers}</div>
+                  <div style={{ color: '#666' }}>Total Followers</div>
+                </div>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '2vw', background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
                 <thead>
-                  <tr className="text-slate-600 text-sm">
-                    <th className="py-3 pl-4 pr-2">#</th>
-                    <th className="py-3 px-2">Username</th>
-                    <th className="py-3 px-2">Profile</th>
-                    <th className="py-3 px-2">Quick</th>
+                  <tr>
+                    <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151' }}>Username</th>
+                    <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151' }}>Display Name</th>
+                    <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151' }}>Status</th>
+                    <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151' }}>Last Seen</th>
                   </tr>
                 </thead>
-                <tbody className="text-slate-800">
-                  {(() => {
-                    const list = query ? filtered : unfollowers;
-                    if (list.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={4} className="py-10 text-center text-slate-500">{unfollowers.length === 0 ? "Upload a ZIP to see results." : "No matches for your search."}</td>
-                        </tr>
-                      );
-                    }
-                    return list.map((u, i) => {
-                      const url = `https://instagram.com/${u}`;
-                      return (
-                        <tr key={u} className="border-t border-slate-100 hover:bg-slate-50">
-                          <td className="py-3 pl-4 pr-2 text-slate-500">{i + 1}</td>
-                          <td className="py-3 px-2 font-medium">{u}</td>
-                          <td className="py-3 px-2"><a href={url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{url}</a></td>
-                          <td className="py-3 px-2"><a href={url} target="_blank" rel="noreferrer" className="inline-block px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: brand.blue }}>Open profile</a></td>
-                        </tr>
-                      );
-                    });
-                  })()}
+                <tbody>
+                  {results.unfollowers.map((user: any) => (
+                    <tr key={user.username}>
+                      <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb' }}>@{user.username}</td>
+                      <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb' }}>{user.displayName}</td>
+                      <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', color: '#ef4444', fontWeight: 600 }}>{user.status}</td>
+                      <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb' }}>{user.lastSeen}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
-            ) : (
-              <div className="bg-white text-slate-800 p-8 text-center">
-                <p className="text-slate-600">Pending Requests will appear here when parsed from your ZIP. (Coming soon)</p>
-              </div>
-            )}
+            </div>
+          )}
+        </div>
+  <div style={{ background: 'white', borderRadius: 20, padding: '3vw', marginTop: '3vw', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ color: '#333', fontSize: '2rem', marginBottom: '2vw', textAlign: 'center' }}>How to Get Your Instagram Data</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2vw', marginTop: '2vw' }}>
+            <div style={{ textAlign: 'center', padding: '1.5vw' }}>
+              <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', width: 50, height: 50, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', margin: '0 auto 1vw' }}>1</div>
+              <h3 style={{ color: '#333', marginBottom: 10, fontSize: '1.2rem' }}>Open Instagram</h3>
+              <p style={{ color: '#666', fontSize: '0.95rem' }}>Go to Instagram.com and log into your account</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '1.5vw' }}>
+              <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', width: 50, height: 50, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', margin: '0 auto 1vw' }}>2</div>
+              <h3 style={{ color: '#333', marginBottom: 10, fontSize: '1.2rem' }}>Access Settings</h3>
+              <p style={{ color: '#666', fontSize: '0.95rem' }}>Click on your profile icon, then go to Settings → Privacy and Security</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '1.5vw' }}>
+              <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', width: 50, height: 50, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', margin: '0 auto 1vw' }}>3</div>
+              <h3 style={{ color: '#333', marginBottom: 10, fontSize: '1.2rem' }}>Request Data</h3>
+              <p style={{ color: '#666', fontSize: '0.95rem' }}>Select "Download Data" and choose JSON format</p>
+            </div>
+            <div style={{ textAlign: 'center', padding: '1.5vw' }}>
+              <div style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', width: 50, height: 50, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', fontWeight: 'bold', margin: '0 auto 1vw' }}>4</div>
+              <h3 style={{ color: '#333', marginBottom: 10, fontSize: '1.2rem' }}>Download & Upload</h3>
+              <p style={{ color: '#666', fontSize: '0.95rem' }}>Download the ZIP file when ready and upload it here</p>
+            </div>
           </div>
-        </section>
-
-        {/* Feature cards */}
-        <section className="mt-12 grid md:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Local‑only</h3>
-            <p className="text-sm text-white/80 mt-1">Your ZIP never leaves your device. Parsing and results are computed in your browser.</p>
-          </div>
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Simple like FreeConvert</h3>
-            <p className="text-sm text-white/80 mt-1">Clean central card, big button, easy drag‑and‑drop.</p>
-          </div>
-          <div className="p-5 rounded-2xl bg-white/10 border border-white/10">
-            <h3 className="font-semibold">Future‑ready</h3>
-            <p className="text-sm text-white/80 mt-1">Built to add history, engagement scores, and multi‑account later.</p>
-          </div>
-        </section>
-
-        <footer className="mt-16 text-center text-white/60 text-sm">© {new Date().getFullYear()} WhosFake • Built for privacy</footer>
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
