@@ -36,8 +36,8 @@ const HowToSteps: React.FC = () => (
           </div>
           <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '2vw' }}>
             <div style={{ textAlign: 'center', padding: '1.5vw', maxWidth: 350, width: '100%', margin: '0 auto' }}>
-              <div style={{ margin: '0 auto 1vw', width: 50, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '50%', fontSize: '1.5rem', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(102,126,234,0.08)' }}>
-                {steps.length}
+              <div style={{ margin: '0 auto 1vw', width: 50, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '50%', fontSize: '2rem', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(102,126,234,0.08)' }}>
+                ⚡️
               </div>
               <h3 style={{ color: '#333', marginBottom: 10, fontSize: '1.2rem' }}>{lastStep.title}</h3>
               <p style={{ color: '#666', fontSize: '0.95rem' }}>{lastStep.text}</p>

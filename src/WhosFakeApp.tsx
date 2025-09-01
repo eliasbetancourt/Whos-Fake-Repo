@@ -42,6 +42,8 @@ async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Pr
   return files;
 }
 import React, { useRef, useState } from "react";
+import JSZip from 'jszip';
+import { analyzeFollowersAndFollowing } from './backend/analysis';
 import HowToSteps from "./components/HowToSteps";
 import FileList from "./components/FileList";
 import Header from "./components/Header";
@@ -76,7 +78,8 @@ export default function WhosFakeApp() {
     const newFiles = Array.from(files).filter(f => f.name !== '.DS_Store');
     setSelectedFiles(prev => {
       const names = new Set(prev.map(f => f.name));
-      return [...prev, ...newFiles.filter(f => !names.has(f.name))];
+      // Always filter out .DS_Store from the combined list
+      return [...prev, ...newFiles.filter(f => !names.has(f.name))].filter(f => f.name !== '.DS_Store');
     });
   };
 
@@ -100,55 +103,106 @@ export default function WhosFakeApp() {
     const items = e.dataTransfer.items;
     if (items && items.length && items[0].webkitGetAsEntry) {
       const allFiles = await getAllFilesFromDataTransferItems(items);
-      // Add only new files, filter out duplicates
+      // Add only new files, filter out duplicates and .DS_Store
       setSelectedFiles(prev => {
         const names = new Set(prev.map(f => f.name));
-        return [...prev, ...allFiles.filter(f => !names.has(f.name))];
+        return [...prev, ...allFiles.filter(f => !names.has(f.name))].filter(f => f.name !== '.DS_Store');
       });
     } else {
       handleFileSelect(e.dataTransfer.files);
     }
   };
 
+  // Only show the parent ZIP file (or parent folder if not zipped) in the file list
+  let displayFiles: File[] = [];
+  let isTopLevelFolder = false;
+  if (selectedFiles.some(f => f.name.toLowerCase().endsWith('.zip'))) {
+    // Show only the first ZIP file
+    const zip = selectedFiles.find(f => f.name.toLowerCase().endsWith('.zip'));
+    if (zip) displayFiles = [zip];
+  } else if (selectedFiles.length > 0) {
+    // If not zipped, show only the top-level folder (simulate by showing the first file's root folder if available)
+    const first = selectedFiles[0];
+    if ((first as any).webkitRelativePath) {
+      const root = (first as any).webkitRelativePath.split('/')[0];
+      // Simulate a folder File object for display only
+      displayFiles = [new File([first], root)];
+      isTopLevelFolder = true;
+    } else {
+      displayFiles = [first];
+    }
+  }
   // Validation
-  const hasUnsupported = selectedFiles.some(
-    file => !supportedTypes.some(type => file.name.toLowerCase().endsWith(type))
-  );
+  const hasUnsupported = displayFiles.some((file, idx) => {
+    // If we're showing a simulated top-level folder, always allow it
+    if (isTopLevelFolder && idx === 0) return false;
+    return !supportedTypes.some(type => file.name.toLowerCase().endsWith(type));
+  });
 
-  // Processing simulation (replace with real logic)
+  // Real file processing logic
   const handleProcess = async () => {
     setProcessing(true);
     setProgress(0);
     setProgressText('Reading files...');
-    const steps = [
-      { progress: 20, text: 'Reading files...' },
-      { progress: 40, text: 'Parsing Instagram data...' },
-      { progress: 60, text: 'Analyzing followers...' },
-      { progress: 80, text: 'Detecting unfollowers...' },
-      { progress: 100, text: 'Analysis complete!' }
-    ];
-    for (const step of steps) {
-      await new Promise(res => setTimeout(res, 800));
-      setProgress(step.progress);
-      setProgressText(step.text);
-    }
-    // Mock results
-    setTimeout(() => {
+    try {
+      // Find the ZIP file
+      const zipFile = selectedFiles.find(f => f.name.endsWith('.zip'));
+      if (!zipFile) {
+        setProgressText('No ZIP file selected.');
+        setProcessing(false);
+        return;
+      }
+      setProgress(20);
+      setProgressText('Unzipping...');
+      const zip = await JSZip.loadAsync(zipFile);
+      setProgress(40);
+      setProgressText('Extracting followers and following...');
+      // Find the relevant files in the zip
+      // Ignore .DS_Store files
+      const zipFileKeys = Object.keys(zip.files).filter(k => !k.includes('.DS_Store'));
+      const followersPath = zipFileKeys.find(k => k.match(/followers_and_following\/followers_1\.json$/));
+      const followingPath = zipFileKeys.find(k => k.match(/followers_and_following\/following\.json$/));
+      if (!followersPath || !followingPath) {
+        setProgressText('Could not find followers or following file in ZIP.');
+        setProcessing(false);
+        return;
+      }
+      const followersContent = await zip.files[followersPath].async('string');
+      const followingContent = await zip.files[followingPath].async('string');
+      setProgress(60);
+      setProgressText('Analyzing...');
+      // Use backend logic (adapted for browser)
+      const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
+        (entry.string_list_data || []).map((s: any) => ({
+          username: s.value,
+          profileUrl: s.href,
+          timestamp: s.timestamp
+        }))
+      );
+      const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
+        (entry.string_list_data || []).map((s: any) => ({
+          username: s.value,
+          profileUrl: s.href,
+          timestamp: s.timestamp
+        }))
+      );
+      const followerUsernames = new Set(followersArr.map(f => f.username));
+      const unfollowers = followingArr.filter(f => !followerUsernames.has(f.username));
+      setProgress(100);
+      setProgressText('Analysis complete!');
       setResults({
         summary: {
-          totalFollowers: 847,
-          totalFollowing: 923,
-          unfollowers: 23,
-          newFollowers: 12
+          totalFollowers: followersArr.length,
+          totalFollowing: followingArr.length,
+          unfollowers: unfollowers.length
         },
-        unfollowers: [
-          { username: 'john_doe_123', displayName: 'John Doe', status: 'Unfollowed', lastSeen: '2 days ago' },
-          { username: 'jane_smith', displayName: 'Jane Smith', status: 'Unfollowed', lastSeen: '1 week ago' },
-          { username: 'mike_wilson', displayName: 'Mike Wilson', status: 'Unfollowed', lastSeen: '3 days ago' }
-        ]
+        unfollowers
       });
-      setProcessing(false);
-    }, 500);
+    } catch (err) {
+      setProgressText('Error processing file.');
+      setResults(null);
+    }
+    setProcessing(false);
   };
 
   // UI
@@ -190,7 +244,7 @@ export default function WhosFakeApp() {
             </div>
           </div>
           <FileList
-            selectedFiles={selectedFiles}
+            selectedFiles={displayFiles}
             supportedTypes={supportedTypes}
             formatFileSize={formatFileSize}
             handleRemoveFile={handleRemoveFile}

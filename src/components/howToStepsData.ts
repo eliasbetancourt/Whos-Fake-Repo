@@ -38,6 +38,6 @@ export const howToSteps = [
   },
   {
     title: 'Bonus: Faster Download',
-    text: 'Want a faster download? Only select "Followers and Following" in the info selection screen or watch our video below!'
+    text: 'Want a faster download? Only select "Followers and Following" in the info selection screen. Need help? Watch our video below!'
   }
 ];
