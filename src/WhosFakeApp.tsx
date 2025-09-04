@@ -113,7 +113,7 @@ export default function WhosFakeApp() {
     }
   };
 
-  // Only show the parent ZIP file (or parent folder if not zipped) in the file list
+  // Show all files if a folder is uploaded, or just the ZIP if present
   let displayFiles: File[] = [];
   let isTopLevelFolder = false;
   if (selectedFiles.some(f => f.name.toLowerCase().endsWith('.zip'))) {
@@ -121,21 +121,18 @@ export default function WhosFakeApp() {
     const zip = selectedFiles.find(f => f.name.toLowerCase().endsWith('.zip'));
     if (zip) displayFiles = [zip];
   } else if (selectedFiles.length > 0) {
-    // If not zipped, show only the top-level folder (simulate by showing the first file's root folder if available)
-    const first = selectedFiles[0];
-    if ((first as any).webkitRelativePath) {
-      const root = (first as any).webkitRelativePath.split('/')[0];
-      // Simulate a folder File object for display only
-      displayFiles = [new File([first], root)];
+    // If files have webkitRelativePath, show all files (folder upload)
+    if ((selectedFiles[0] as any).webkitRelativePath) {
+      displayFiles = selectedFiles;
       isTopLevelFolder = true;
     } else {
-      displayFiles = [first];
+      displayFiles = selectedFiles;
     }
   }
   // Validation
-  const hasUnsupported = displayFiles.some((file, idx) => {
-    // If we're showing a simulated top-level folder, always allow it
-    if (isTopLevelFolder && idx === 0) return false;
+  const hasUnsupported = displayFiles.some((file) => {
+    // If it's a folder upload, allow .json files
+    if (isTopLevelFolder) return !file.name.toLowerCase().endsWith('.json');
     return !supportedTypes.some(type => file.name.toLowerCase().endsWith(type));
   });
 
@@ -145,33 +142,72 @@ export default function WhosFakeApp() {
     setProgress(0);
     setProgressText('Reading files...');
     try {
-      // Find the ZIP file
+      // If ZIP, process as before
       const zipFile = selectedFiles.find(f => f.name.endsWith('.zip'));
-      if (!zipFile) {
-        setProgressText('No ZIP file selected.');
+      if (zipFile) {
+        setProgress(20);
+        setProgressText('Unzipping...');
+        const zip = await JSZip.loadAsync(zipFile);
+        setProgress(40);
+        setProgressText('Extracting followers and following...');
+        // Find the relevant files in the zip
+        // Ignore .DS_Store files
+        const zipFileKeys = Object.keys(zip.files).filter(k => !k.includes('.DS_Store'));
+        const followersPath = zipFileKeys.find(k => k.match(/followers_and_following\/followers_1\.json$/));
+        const followingPath = zipFileKeys.find(k => k.match(/followers_and_following\/following\.json$/));
+        if (!followersPath || !followingPath) {
+          setProgressText('Could not find followers or following file in ZIP.');
+          setProcessing(false);
+          return;
+        }
+        const followersContent = await zip.files[followersPath].async('string');
+        const followingContent = await zip.files[followingPath].async('string');
+        setProgress(60);
+        setProgressText('Analyzing...');
+        // Use backend logic (adapted for browser)
+        const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
+          (entry.string_list_data || []).map((s: any) => ({
+            username: s.value,
+            profileUrl: s.href,
+            timestamp: s.timestamp
+          }))
+        );
+        const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
+          (entry.string_list_data || []).map((s: any) => ({
+            username: s.value,
+            profileUrl: s.href,
+            timestamp: s.timestamp
+          }))
+        );
+        const followerUsernames = new Set(followersArr.map(f => f.username));
+        const unfollowers = followingArr.filter(f => !followerUsernames.has(f.username));
+        setProgress(100);
+        setProgressText('Analysis complete!');
+        setResults({
+          summary: {
+            totalFollowers: followersArr.length,
+            totalFollowing: followingArr.length,
+            unfollowers: unfollowers.length
+          },
+          unfollowers
+        });
         setProcessing(false);
         return;
       }
-      setProgress(20);
-      setProgressText('Unzipping...');
-      const zip = await JSZip.loadAsync(zipFile);
+      // If folder upload, look for the expected JSON files
+      const followersFile = selectedFiles.find(f => (f as any).webkitRelativePath && (f as any).webkitRelativePath.match(/followers_and_following\/followers_1\.json$/));
+      const followingFile = selectedFiles.find(f => (f as any).webkitRelativePath && (f as any).webkitRelativePath.match(/followers_and_following\/following\.json$/));
+      if (!followersFile || !followingFile) {
+        setProgressText('Could not find followers or following file in folder.');
+        setProcessing(false);
+        return;
+      }
       setProgress(40);
       setProgressText('Extracting followers and following...');
-      // Find the relevant files in the zip
-      // Ignore .DS_Store files
-      const zipFileKeys = Object.keys(zip.files).filter(k => !k.includes('.DS_Store'));
-      const followersPath = zipFileKeys.find(k => k.match(/followers_and_following\/followers_1\.json$/));
-      const followingPath = zipFileKeys.find(k => k.match(/followers_and_following\/following\.json$/));
-      if (!followersPath || !followingPath) {
-        setProgressText('Could not find followers or following file in ZIP.');
-        setProcessing(false);
-        return;
-      }
-      const followersContent = await zip.files[followersPath].async('string');
-      const followingContent = await zip.files[followingPath].async('string');
+      const followersContent = await followersFile.text();
+      const followingContent = await followingFile.text();
       setProgress(60);
       setProgressText('Analyzing...');
-      // Use backend logic (adapted for browser)
       const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
         (entry.string_list_data || []).map((s: any) => ({
           username: s.value,

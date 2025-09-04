@@ -1,3 +1,46 @@
+// Mobile instructions
+export const howToStepsMobile = [
+  {
+    title: 'Open Instagram App',
+    text: 'Tap your profile icon in the bottom right.'
+  },
+  {
+    title: 'Go to Settings',
+    text: 'Tap the menu (☰) and select Settings.'
+  },
+  {
+    title: 'Accounts Center',
+    text: 'Scroll and tap Accounts Center.'
+  },
+  {
+    title: 'Your Info & Permissions',
+    text: 'Tap Your information and permissions.'
+  },
+  {
+    title: 'Export Data',
+    text: 'Tap Export your information.'
+  },
+  {
+    title: 'Create Export',
+    text: 'Tap Create export.'
+  },
+  {
+    title: 'Export to Device',
+    text: 'Choose Export to device.'
+  },
+  {
+    title: 'Set Range & Format',
+    text: 'Set Range to All time, Format to JSON, then confirm.'
+  },
+  {
+    title: 'Start Export',
+    text: 'Tap Start export to download.'
+  },
+  {
+    title: 'Bonus: Faster Download',
+    text: 'Select only "Followers and Following" for a faster download.'
+  }
+];
 // This file maps the step images and text for the HowToSteps component
 export const howToSteps = [
   {
