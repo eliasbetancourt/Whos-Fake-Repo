@@ -49,6 +49,7 @@ import FileList from "./components/FileList";
 import Header from "./components/Header";
 import ProgressBar from "./components/ProgressBar";
 import ResultsTable from "./components/ResultsTable";
+import VideoSection from "./components/VideoSection";
 
 //modern
 // Utility for formatting file sizes
@@ -243,10 +244,27 @@ export default function WhosFakeApp() {
 
   // UI
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '100vh', color: '#333', width: '100vw', minWidth: 0 }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2vw', width: '100%', boxSizing: 'border-box' }}>
-      <Header />
-  <div style={{ background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.1)', padding: '4vw 2vw', margin: '4vw auto', maxWidth: 800, minWidth: 0, width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
+    <div style={{
+      fontFamily: 'system-ui, sans-serif',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      minHeight: '100vh',
+      height: 'auto',
+      color: '#333',
+      width: '100vw',
+      minWidth: 0,
+      position: 'relative',
+      overflowX: 'hidden'
+    }}>
+      <div style={{
+        maxWidth: 1200,
+        margin: '0 auto',
+        padding: '2vw',
+        width: '100%',
+        boxSizing: 'border-box',
+        minHeight: '100vh'
+      }}>
+        <Header />
+        <div style={{ background: 'white', borderRadius: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.1)', padding: '4vw 2vw', margin: '4vw auto', maxWidth: 800, minWidth: 0, width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
           <div
             style={{ border: '3px dashed #e0e7ff', borderRadius: 16, padding: '4vw 2vw', margin: '2vw 0', background: dragOver ? '#e0e7ff' : '#f8faff', cursor: 'pointer', transition: 'all 0.3s', position: 'relative', minWidth: 0 }}
             onDragOver={handleDragOver}
@@ -288,11 +306,13 @@ export default function WhosFakeApp() {
             hasUnsupported={hasUnsupported}
             handleProcess={handleProcess}
           />
-         {processing && <ProgressBar progress={progress} progressText={progressText} />}
-         {results && <ResultsTable results={results} />}
+          {processing && <ProgressBar progress={progress} progressText={progressText} />}
+          {results && <ResultsTable results={results} />}
         </div>
         <HowToSteps />
-        </div>
       </div>
+      <VideoSection mode={"browser"} />
+      <div></div>
+    </div>
   );
 }
