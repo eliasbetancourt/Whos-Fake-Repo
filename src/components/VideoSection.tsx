@@ -3,7 +3,7 @@ import React, { useState } from "react";
 export default function VideoSection() {
   const [mode, setMode] = useState<'browser' | 'mobile'>('browser');
   const browserVideoUrl = "https://www.youtube.com/embed/4eh8eJAUEdk";
-  const mobileVideoUrl = "https://www.youtube.com/embed/oHg5SJYRHA0";
+  const mobileVideoUrl = "https://youtu.be/EJGduqb2zx4";
 
   return (
     <div style={{
@@ -28,11 +28,6 @@ export default function VideoSection() {
             ? "Instagram Browser Tutorial Video"
             : "Instagram Mobile Tutorial Video"}
         </h2>
-        {mode === 'mobile' && (
-          <div style={{ color: '#764ba2', fontWeight: 500, marginBottom: 18, fontSize: '1.1rem' }}>
-            Coming soon
-          </div>
-        )}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
           <iframe
             width="600"
