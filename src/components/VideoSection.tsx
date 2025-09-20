@@ -3,7 +3,7 @@ import React, { useState } from "react";
 export default function VideoSection() {
   const [mode, setMode] = useState<'browser' | 'mobile'>('browser');
   const browserVideoUrl = "https://www.youtube.com/embed/4eh8eJAUEdk";
-  const mobileVideoUrl = "https://youtu.be/EJGduqb2zx4";
+  const mobileVideoUrl = "https://www.youtube.com/embed/EJGduqb2zx4";
 
   return (
     <div style={{
