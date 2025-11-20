@@ -30,17 +30,21 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => (
                   </tr>
                 </thead>
                 <tbody>
-                  {results.unfollowers.map((user: any) => {
+                  {results.unfollowers.map((user: any, index: number) => {
                     // Format timestamp if available
                     let since = '-';
                     if (user.timestamp) {
                       const date = new Date(user.timestamp * 1000);
                       since = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
                     }
+                    
+                    // Use the username directly - it should always exist if data is processed correctly
+                    const displayUsername = user.username || `Missing_${index}`;
+                    
                     return (
-                      <tr key={user.username}>
+                      <tr key={user.username || index}>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', color: '#3b82f6', fontWeight: 600, verticalAlign: 'middle', textAlign: 'left' }}>
-                          <a href={user.profileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>@{user.username}</a>
+                          <a href={user.profileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>@{displayUsername}</a>
                         </td>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', color: '#6b7280', fontSize: '1rem', verticalAlign: 'middle', textAlign: 'left' }}>
                           {since}

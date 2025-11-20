@@ -168,20 +168,29 @@ export default function WhosFakeApp() {
         // Use backend logic (adapted for browser)
         const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
           (entry.string_list_data || []).map((s: any) => ({
-            username: s.value,
+            username: s.value || entry.title,
             profileUrl: s.href,
             timestamp: s.timestamp
           }))
         );
         const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
           (entry.string_list_data || []).map((s: any) => ({
-            username: s.value,
+            username: s.value || entry.title,
             profileUrl: s.href,
             timestamp: s.timestamp
           }))
         );
-        const followerUsernames = new Set(followersArr.map(f => f.username));
-        const unfollowers = followingArr.filter(f => !followerUsernames.has(f.username));
+
+        const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
+        const unfollowers = followingArr.filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()));
+
+        console.log('Processing complete:', {
+          followers: followersArr.length,
+          following: followingArr.length,
+          unfollowers: unfollowers.length,
+          firstUnfollower: unfollowers[0]
+        });
+
         setProgress(100);
         setProgressText('Analysis complete!');
         setResults({
@@ -211,20 +220,29 @@ export default function WhosFakeApp() {
       setProgressText('Analyzing...');
       const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
         (entry.string_list_data || []).map((s: any) => ({
-          username: s.value,
+          username: s.value || entry.title,
           profileUrl: s.href,
           timestamp: s.timestamp
         }))
       );
       const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
         (entry.string_list_data || []).map((s: any) => ({
-          username: s.value,
+          username: s.value || entry.title,
           profileUrl: s.href,
           timestamp: s.timestamp
         }))
       );
-      const followerUsernames = new Set(followersArr.map(f => f.username));
-      const unfollowers = followingArr.filter(f => !followerUsernames.has(f.username));
+
+      const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
+      const unfollowers = followingArr.filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()));
+
+      console.log('Processing complete (folder):', {
+        followers: followersArr.length,
+        following: followingArr.length,
+        unfollowers: unfollowers.length,
+        firstUnfollower: unfollowers[0]
+      });
+
       setProgress(100);
       setProgressText('Analysis complete!');
       setResults({
@@ -236,7 +254,8 @@ export default function WhosFakeApp() {
         unfollowers
       });
     } catch (err) {
-      setProgressText('Error processing file.');
+      console.error('Processing error:', err);
+      setProgressText('Error processing file. Please check the console for details.');
       setResults(null);
     }
     setProcessing(false);
