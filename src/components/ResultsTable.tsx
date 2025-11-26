@@ -1,15 +1,22 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface ResultsTableProps {
   results: any;
 }
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => (
+const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
+  const [unfollowersList, setUnfollowersList] = useState(results.unfollowers);
+  
+  const handleRemoveUser = (index: number) => {
+    setUnfollowersList((prev: any[]) => prev.filter((_, i) => i !== index));
+  };
+  
+  return (
             <div style={{ marginTop: '3vw' }}>
               <h3>Analysis Results</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2vw', marginBottom: '2vw' }}>
                 <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{results.summary.totalFollowing}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{results.summary.totalFollowing - (results.summary.unfollowers - unfollowersList.length)}</div>
                   <div style={{ color: '#666' }}>Following</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
@@ -17,7 +24,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => (
                   <div style={{ color: '#666' }}>Followers</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
-                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{results.summary.unfollowers}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{unfollowersList.length}</div>
                   <div style={{ color: '#666' }}>Unfollowers</div>
                 </div>
               </div>
@@ -27,10 +34,11 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => (
                     <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151', verticalAlign: 'middle' }}>Username</th>
                     <th style={{ padding: 15, textAlign: 'left', background: '#f8fafc', fontWeight: 600, color: '#374151', verticalAlign: 'middle' }}>Following Since</th>
                     <th style={{ padding: 15, textAlign: 'center', background: '#f8fafc', fontWeight: 600, color: '#374151', verticalAlign: 'middle' }}>Unfollow?</th>
+                    <th style={{ padding: 15, textAlign: 'center', background: '#f8fafc', fontWeight: 600, color: '#374151', verticalAlign: 'middle' }}>Remove</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.unfollowers.map((user: any, index: number) => {
+                  {unfollowersList.map((user: any, index: number) => {
                     // Format timestamp if available
                     let since = '-';
                     if (user.timestamp) {
@@ -54,12 +62,21 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => (
                             <img src="/cracked_following_button.png" alt="Unfollow" style={{ height: 44, width: 'auto', verticalAlign: 'middle', cursor: 'pointer' }} />
                           </a>
                         </td>
+                        <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
+                          <img 
+                            src="/remove_button.png" 
+                            alt="Remove" 
+                            onClick={() => handleRemoveUser(index)}
+                            style={{ height: 44, width: 'auto', verticalAlign: 'middle', cursor: 'pointer', backgroundColor: 'transparent', mixBlendMode: 'multiply' }} 
+                          />
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-);
+  );
+};
 
 export default ResultsTable;
