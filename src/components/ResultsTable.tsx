@@ -64,7 +64,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                         </td>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
                           <img 
-                            src="/remove_button.png" 
+                            src="/remove_button2.png" 
                             alt="Remove" 
                             onClick={() => handleRemoveUser(index)}
                             style={{ height: 44, width: 'auto', verticalAlign: 'middle', cursor: 'pointer', backgroundColor: 'transparent', mixBlendMode: 'multiply' }} 

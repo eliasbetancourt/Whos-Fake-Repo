@@ -49,6 +49,21 @@ import FileList from "./components/FileList";
 import Header from "./components/Header";
 import ProgressBar from "./components/ProgressBar";
 import ResultsTable from "./components/ResultsTable";
+
+// Validate if an account is valid (has username and valid URL)
+const isValidAccount = (user: any): boolean => {
+  // Check if username exists and is not empty
+  if (!user.username || user.username.trim() === '') return false;
+  
+  // Check if profile URL exists and is a valid Instagram URL
+  if (!user.profileUrl || !user.profileUrl.includes('instagram.com')) return false;
+  
+  // Filter out generic/placeholder usernames
+  const username = user.username.toLowerCase();
+  if (username === 'instagram user' || username === 'unknown' || username === 'deleted') return false;
+  
+  return true;
+};
 import VideoSection from "./components/VideoSection";
 
 //modern
@@ -182,7 +197,9 @@ export default function WhosFakeApp() {
         );
 
         const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
-        const unfollowers = followingArr.filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()));
+        const unfollowers = followingArr
+          .filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()))
+          .filter(isValidAccount); // Filter out invalid accounts
 
         console.log('Processing complete:', {
           followers: followersArr.length,
@@ -234,7 +251,9 @@ export default function WhosFakeApp() {
       );
 
       const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
-      const unfollowers = followingArr.filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()));
+      const unfollowers = followingArr
+        .filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()))
+        .filter(isValidAccount); // Filter out invalid accounts
 
       console.log('Processing complete (folder):', {
         followers: followersArr.length,
