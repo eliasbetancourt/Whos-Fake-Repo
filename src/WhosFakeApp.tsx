@@ -1,6 +1,7 @@
 // Recursively read directory entries (Chromium only)
 async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Promise<File[]> {
   const files: File[] = [];
+  // Walk each dropped file/directory entry and collect concrete File objects.
   const traverseFileTree = async (item: any, path = "") => {
     if (item.isFile) {
       await new Promise<void>(resolve => {
@@ -13,7 +14,8 @@ async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Pr
       });
     } else if (item.isDirectory) {
       const dirReader = item.createReader();
-      await new Promise<void>((resolve, reject) => {
+      await new Promise<void>((resolve) => {
+        // DirectoryReader returns entries in batches, so keep reading until empty.
         const readEntries = () => {
           dirReader.readEntries(async (entries: any[]) => {
             if (!entries.length) {
@@ -43,7 +45,6 @@ async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Pr
 }
 import React, { useRef, useState } from "react";
 import JSZip from 'jszip';
-import { analyzeFollowersAndFollowing } from './backend/analysis';
 import HowToSteps from "./components/HowToSteps";
 import FileList from "./components/FileList";
 import Header from "./components/Header";
@@ -64,6 +65,11 @@ const isValidAccount = (user: any): boolean => {
   
   return true;
 };
+
+// Normalize Instagram profile links by removing the leading protocol and www.
+const trimInstagramPrefix = (url: string): string => {
+  return (url || '').replace(/^https?:\/\/www\./i, '');
+};
 import VideoSection from "./components/VideoSection";
 
 //modern
@@ -78,6 +84,7 @@ function formatFileSize(bytes: number): string {
 
 const supportedTypes = ['.zip', '.json'];
 
+// Main UI and client-side processing flow for Instagram export analysis.
 export default function WhosFakeApp() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -87,7 +94,7 @@ export default function WhosFakeApp() {
   const [results, setResults] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File selection and drag/drop handlers
+  // Adds selected files while removing duplicates and macOS metadata files.
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
     // Filter out .DS_Store files
@@ -99,25 +106,30 @@ export default function WhosFakeApp() {
     });
   };
 
+  // Removes one file from the current selection by index.
   const handleRemoveFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Marks the drop zone as active while a file is dragged over it.
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(true);
   };
+
+  // Clears drag-over highlighting when the cursor leaves the drop zone.
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
   };
 
+  // Handles dropped files/folders and normalizes them into selectedFiles.
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     // Prefer advanced folder support if available
     const items = e.dataTransfer.items;
-    if (items && items.length && items[0].webkitGetAsEntry) {
+    if (items && items.length && items[0].webkitGetAsEntry()) {
       const allFiles = await getAllFilesFromDataTransferItems(items);
       // Add only new files, filter out duplicates and .DS_Store
       setSelectedFiles(prev => {
@@ -152,7 +164,7 @@ export default function WhosFakeApp() {
     return !supportedTypes.some(type => file.name.toLowerCase().endsWith(type));
   });
 
-  // Real file processing logic
+  // Parses the selected Instagram export and computes non-followers.
   const handleProcess = async () => {
     setProcessing(true);
     setProgress(0);
@@ -184,14 +196,14 @@ export default function WhosFakeApp() {
         const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
           (entry.string_list_data || []).map((s: any) => ({
             username: s.value || entry.title,
-            profileUrl: s.href,
+            profileUrl: trimInstagramPrefix(s.href),
             timestamp: s.timestamp
           }))
         );
         const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
           (entry.string_list_data || []).map((s: any) => ({
             username: s.value || entry.title,
-            profileUrl: s.href,
+            profileUrl: trimInstagramPrefix(s.href),
             timestamp: s.timestamp
           }))
         );
@@ -238,14 +250,14 @@ export default function WhosFakeApp() {
       const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
         (entry.string_list_data || []).map((s: any) => ({
           username: s.value || entry.title,
-          profileUrl: s.href,
+          profileUrl: trimInstagramPrefix(s.href),
           timestamp: s.timestamp
         }))
       );
       const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
         (entry.string_list_data || []).map((s: any) => ({
           username: s.value || entry.title,
-          profileUrl: s.href,
+          profileUrl: trimInstagramPrefix(s.href),
           timestamp: s.timestamp
         }))
       );
@@ -349,7 +361,7 @@ export default function WhosFakeApp() {
         </div>
         <HowToSteps />
       </div>
-      <VideoSection mode={"browser"} />
+      <VideoSection />
       <div></div>
     </div>
   );

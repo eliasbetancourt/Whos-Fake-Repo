@@ -4,6 +4,11 @@ interface ResultsTableProps {
   results: any;
 }
 
+const toAbsoluteUrl = (url: string): string => {
+  if (!url) return '#';
+  return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+};
+
 const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
   const [unfollowersList, setUnfollowersList] = useState(results.unfollowers);
   
@@ -48,17 +53,18 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                     
                     // Use the username directly - it should always exist if data is processed correctly
                     const displayUsername = user.username || `Missing_${index}`;
+                    const profileHref = toAbsoluteUrl(user.profileUrl);
                     
                     return (
                       <tr key={user.username || index}>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', color: '#3b82f6', fontWeight: 600, verticalAlign: 'middle', textAlign: 'left' }}>
-                          <a href={user.profileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>@{displayUsername}</a>
+                          <a href={profileHref} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', fontWeight: 600, textDecoration: 'none' }}>@{displayUsername}</a>
                         </td>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', color: '#6b7280', fontSize: '1rem', verticalAlign: 'middle', textAlign: 'left' }}>
                           {since}
                         </td>
                         <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
-                          <a href={user.profileUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                          <a href={profileHref} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
                             <img src="/cracked_following_button.png" alt="Unfollow" style={{ height: 44, width: 'auto', verticalAlign: 'middle', cursor: 'pointer' }} />
                           </a>
                         </td>
