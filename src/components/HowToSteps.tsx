@@ -30,7 +30,8 @@ const HowToSteps: React.FC = () => {
 
   return (
     <div style={{ background: 'white', borderRadius: 20, padding: '3vw', marginTop: '3vw', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
-      <h2 style={{ color: '#333', fontSize: '2rem', marginBottom: '2vw', textAlign: 'center' }}>How to Get Your Instagram Data</h2>
+      <h1 style={{ color: '#333', fontSize: '2rem', marginBottom: '2vw', textAlign: 'center' }}>Text Instructions</h1>
+      {/* <h2 style={{ color: '#333', fontSize: '2rem', marginBottom: '2vw', textAlign: 'center' }}>How to Get Your Instagram Data</h2> */}
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2vw' }}>
         <button
           style={{

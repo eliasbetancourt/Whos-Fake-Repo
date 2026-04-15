@@ -50,19 +50,20 @@ import FileList from "./components/FileList";
 import Header from "./components/Header";
 import ProgressBar from "./components/ProgressBar";
 import ResultsTable from "./components/ResultsTable";
+import VideoSection from "./components/VideoSection";
 
 // Validate if an account is valid (has username and valid URL)
 const isValidAccount = (user: any): boolean => {
   // Check if username exists and is not empty
   if (!user.username || user.username.trim() === '') return false;
-  
+
   // Check if profile URL exists and is a valid Instagram URL
   if (!user.profileUrl || !user.profileUrl.includes('instagram.com')) return false;
-  
+
   // Filter out generic/placeholder usernames
   const username = user.username.toLowerCase();
   if (username === 'instagram user' || username === 'unknown' || username === 'deleted') return false;
-  
+
   return true;
 };
 
@@ -70,7 +71,6 @@ const isValidAccount = (user: any): boolean => {
 const trimInstagramPrefix = (url: string): string => {
   return (url || '').replace(/^https?:\/\/www\./i, '');
 };
-import VideoSection from "./components/VideoSection";
 
 //modern
 // Utility for formatting file sizes
@@ -359,10 +359,9 @@ export default function WhosFakeApp() {
           {processing && <ProgressBar progress={progress} progressText={progressText} />}
           {results && <ResultsTable results={results} />}
         </div>
+        <VideoSection />
         <HowToSteps />
       </div>
-      <VideoSection />
-      <div></div>
     </div>
   );
 }
