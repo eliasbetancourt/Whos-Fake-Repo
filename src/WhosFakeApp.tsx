@@ -69,7 +69,7 @@ const isValidAccount = (user: any): boolean => {
 
 // Normalize Instagram profile links by removing the leading protocol and www.
 const trimInstagramPrefix = (url: string): string => {
-  return (url || '').replace(/^https?:\/\/www\./i, '');
+  return (url || '').replace(/^https?:\/\/www\./i, '').replace(/\/_u\//i, '/');
 };
 
 //modern
