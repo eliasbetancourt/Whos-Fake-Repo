@@ -1,9 +1,26 @@
-import React, { useState } from "react";
+import { useState } from "react";
 
+/**
+ * VideoSection — embeds two hard-coded YouTube tutorial videos.
+ *
+ * Security notes:
+ *   • URLs are compile-time constants; no user input ever reaches the iframe
+ *     src attribute (no open-redirect or XSS exposure).
+ *   • We use youtube-nocookie.com to minimize third-party tracking on first
+ *     load and align with privacy expectations (NIST PR.DS-5).
+ *   • The CSP `frame-src` directive in index.html restricts <iframe> to the
+ *     youtube.com / youtube-nocookie.com origins — defense in depth in case
+ *     this list of URLs is ever changed.
+ *   • The iframe carries `sandbox` + `referrerPolicy="no-referrer"`. We grant
+ *     only the capabilities YouTube actually needs to play a video.
+ *   • Subresource Integrity (SRI) does not apply to <iframe>; the equivalent
+ *     guarantee is the strict origin allow-list above.
+ */
 export default function VideoSection() {
   const [mode, setMode] = useState<'browser' | 'mobile'>('browser');
-  const browserVideoUrl = "https://www.youtube.com/embed/4eh8eJAUEdk";
-  const mobileVideoUrl = "https://www.youtube.com/embed/EJGduqb2zx4";
+
+  const browserVideoUrl = "https://www.youtube-nocookie.com/embed/4eh8eJAUEdk";
+  const mobileVideoUrl = "https://www.youtube-nocookie.com/embed/EJGduqb2zx4";
 
   return (
     <div style={{
@@ -35,7 +52,7 @@ export default function VideoSection() {
             src={mode === 'browser' ? browserVideoUrl : mobileVideoUrl}
             title="Tutorial Video"
             frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             style={{ borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}
           />
