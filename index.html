@@ -2,12 +2,61 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Content Security Policy (CSP) — defense-in-depth against XSS, clickjacking,
+      and unwanted third-party content. Aligned with NIST SP 800-53 SC-18
+      ("Mobile Code") and the OWASP Secure Headers Project.
+
+        default-src 'self'         Block everything not explicitly allowed below.
+        script-src  'self'         Only first-party (Vite-bundled) JS may execute.
+                                   No inline scripts, no eval, no remote CDNs.
+        style-src   'self' 'unsafe-inline'
+                                   React's `style={…}` prop applies inline styles
+                                   at runtime; 'unsafe-inline' is required for
+                                   the current UI. (Style-based XSS is a much
+                                   smaller surface than script-src.)
+        img-src     'self' data: https://i.ytimg.com https://*.ytimg.com
+                                   Local images + YouTube thumbnails.
+        font-src    'self'         Self-hosted fonts only.
+        connect-src 'self'         Block all outbound XHR/fetch — the app is
+                                   purely client-side and never phones home.
+        frame-src   https://www.youtube.com https://www.youtube-nocookie.com
+                                   Tutorial videos only; nothing else may iframe.
+        media-src   'self'         No external video/audio.
+        object-src  'none'         Block <object>/<embed>/Flash entirely.
+        base-uri    'self'         Prevent <base> tag injection attacks.
+        form-action 'self'         Forms can only submit back to this origin.
+        frame-ancestors 'none'     Anti-clickjacking — no one may iframe us.
+        upgrade-insecure-requests  Auto-upgrade any stray http:// reference.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com https://*.ytimg.com; font-src 'self'; connect-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    />
+    <!-- Send minimal referrer information cross-origin (NIST SC-7 / privacy). -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <!-- Restrict powerful browser APIs we do not need. -->
+    <meta
+      http-equiv="Permissions-Policy"
+      content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), interest-cohort=()"
+    />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+    <meta
+      name="description"
+      content="WhosFake — find which Instagram accounts don't follow you back. Your data never leaves your browser."
+    />
+    <title>WhosFake — Instagram Unfollower Analyzer</title>
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      The bundled script is same-origin and produced by Vite at build time, so
+      Subresource Integrity (SRI) is not applicable here. There are no
+      third-party <script src="…"> tags anywhere in the app; if any are added
+      in the future they MUST include an `integrity="sha384-…"` attribute and
+      `crossorigin="anonymous"`, per W3C SRI Level 1.
+    -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

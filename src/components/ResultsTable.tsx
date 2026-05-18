@@ -24,13 +24,15 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
       <h3>Analysis Results</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2vw', marginBottom: '2vw' }}>
         <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
-          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{results.summary.totalFollowing - (results.summary.unfollowers - unfollowersList.length)}</div>
-          <div style={{ color: '#666' }}>Following</div>
-        </div>
-        <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
           <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#6d64e8' }}>{results.summary.totalFollowers}</div>
           <div style={{ color: '#666' }}>Followers</div>
         </div>
+
+        <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
+          <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{results.summary.totalFollowing - (results.summary.unfollowers - unfollowersList.length)}</div>
+          <div style={{ color: '#666' }}>Following</div>
+        </div>
+
         <div style={{ textAlign: 'center', padding: '2vw', background: '#f8fafc', borderRadius: 12 }}>
           <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ef4444' }}>{unfollowersList.length}</div>
           <div style={{ color: '#666' }}>Unfollowers</div>
@@ -73,10 +75,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                 </td>
                 <td style={{ padding: 15, borderBottom: '1px solid #e5e7eb', background: 'white', textAlign: 'center', verticalAlign: 'middle' }}>
                   <img
-                    src="/remove_button2.png"
+                    src="/removebutton.png"
                     alt="Remove"
                     onClick={() => handleRemoveUser(index)}
-                    style={{ height: 44, width: 'auto', verticalAlign: 'middle', cursor: 'pointer', backgroundColor: 'transparent', mixBlendMode: 'multiply' }}
+                    style={{ height: 44, width: 'auto', cursor: 'pointer', display: 'block', margin: '0 auto' }}
                   />
                 </td>
               </tr>

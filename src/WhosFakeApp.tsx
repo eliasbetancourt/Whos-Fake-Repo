@@ -45,6 +45,7 @@ async function getAllFilesFromDataTransferItems(items: DataTransferItemList): Pr
 }
 import React, { useRef, useState } from "react";
 import JSZip from 'jszip';
+import { analyzeFollowersAndFollowing } from './analysis';
 import HowToSteps from "./components/HowToSteps";
 import FileList from "./components/FileList";
 import Header from "./components/Header";
@@ -192,30 +193,17 @@ export default function WhosFakeApp() {
         const followingContent = await zip.files[followingPath].async('string');
         setProgress(60);
         setProgressText('Analyzing...');
-        // Use backend logic (adapted for browser)
-        const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
-          (entry.string_list_data || []).map((s: any) => ({
-            username: s.value || entry.title,
-            profileUrl: trimInstagramPrefix(s.href),
-            timestamp: s.timestamp
-          }))
+        const { followers, following, unfollowers: rawUnfollowers } = analyzeFollowersAndFollowing(
+          JSON.parse(followersContent),
+          JSON.parse(followingContent)
         );
-        const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
-          (entry.string_list_data || []).map((s: any) => ({
-            username: s.value || entry.title,
-            profileUrl: trimInstagramPrefix(s.href),
-            timestamp: s.timestamp
-          }))
-        );
-
-        const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
-        const unfollowers = followingArr
-          .filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()))
-          .filter(isValidAccount); // Filter out invalid accounts
+        const unfollowers = rawUnfollowers
+          .map(u => ({ ...u, profileUrl: trimInstagramPrefix(u.profileUrl) }))
+          .filter(isValidAccount);
 
         console.log('Processing complete:', {
-          followers: followersArr.length,
-          following: followingArr.length,
+          followers: followers.length,
+          following: following.length,
           unfollowers: unfollowers.length,
           firstUnfollower: unfollowers[0]
         });
@@ -224,8 +212,8 @@ export default function WhosFakeApp() {
         setProgressText('Analysis complete!');
         setResults({
           summary: {
-            totalFollowers: followersArr.length,
-            totalFollowing: followingArr.length,
+            totalFollowers: followers.length,
+            totalFollowing: following.length,
             unfollowers: unfollowers.length
           },
           unfollowers
@@ -247,29 +235,17 @@ export default function WhosFakeApp() {
       const followingContent = await followingFile.text();
       setProgress(60);
       setProgressText('Analyzing...');
-      const followersArr = JSON.parse(followersContent).flatMap((entry: any) =>
-        (entry.string_list_data || []).map((s: any) => ({
-          username: s.value || entry.title,
-          profileUrl: trimInstagramPrefix(s.href),
-          timestamp: s.timestamp
-        }))
+      const { followers, following, unfollowers: rawUnfollowers } = analyzeFollowersAndFollowing(
+        JSON.parse(followersContent),
+        JSON.parse(followingContent)
       );
-      const followingArr = JSON.parse(followingContent).relationships_following.flatMap((entry: any) =>
-        (entry.string_list_data || []).map((s: any) => ({
-          username: s.value || entry.title,
-          profileUrl: trimInstagramPrefix(s.href),
-          timestamp: s.timestamp
-        }))
-      );
-
-      const followerUsernames = new Set(followersArr.map((f: any) => (f.username || '').toLowerCase().trim()));
-      const unfollowers = followingArr
-        .filter((f: any) => !followerUsernames.has((f.username || '').toLowerCase().trim()))
-        .filter(isValidAccount); // Filter out invalid accounts
+      const unfollowers = rawUnfollowers
+        .map(u => ({ ...u, profileUrl: trimInstagramPrefix(u.profileUrl) }))
+        .filter(isValidAccount);
 
       console.log('Processing complete (folder):', {
-        followers: followersArr.length,
-        following: followingArr.length,
+        followers: followers.length,
+        following: following.length,
         unfollowers: unfollowers.length,
         firstUnfollower: unfollowers[0]
       });
@@ -278,8 +254,8 @@ export default function WhosFakeApp() {
       setProgressText('Analysis complete!');
       setResults({
         summary: {
-          totalFollowers: followersArr.length,
-          totalFollowing: followingArr.length,
+          totalFollowers: followers.length,
+          totalFollowing: following.length,
           unfollowers: unfollowers.length
         },
         unfollowers
