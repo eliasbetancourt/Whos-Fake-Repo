@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * VideoSection — embeds two hard-coded YouTube tutorial videos.
@@ -11,16 +11,26 @@ import { useState } from "react";
  *   • The CSP `frame-src` directive in index.html restricts <iframe> to the
  *     youtube.com / youtube-nocookie.com origins — defense in depth in case
  *     this list of URLs is ever changed.
- *   • The iframe carries `sandbox` + `referrerPolicy="no-referrer"`. We grant
- *     only the capabilities YouTube actually needs to play a video.
+ *   • On mobile browsers YouTube blocks iframe playback; a thumbnail link is
+ *     shown instead, opening the video in the YouTube app / mobile site.
  *   • Subresource Integrity (SRI) does not apply to <iframe>; the equivalent
  *     guarantee is the strict origin allow-list above.
  */
 export default function VideoSection() {
   const [mode, setMode] = useState<'browser' | 'mobile'>('browser');
+  const [isMobile, setIsMobile] = useState(false);
 
-  const browserVideoUrl = "https://www.youtube-nocookie.com/embed/4eh8eJAUEdk";
-  const mobileVideoUrl = "https://www.youtube-nocookie.com/embed/EJGduqb2zx4";
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768);
+  }, []);
+
+  const browserVideoId = "4eh8eJAUEdk";
+  const mobileVideoId = "EJGduqb2zx4";
+
+  const videoId = mode === 'browser' ? browserVideoId : mobileVideoId;
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 
   return (
     <div style={{
@@ -46,16 +56,32 @@ export default function VideoSection() {
             : "Instagram Mobile Tutorial Video"}
         </h2>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
-          <iframe
-            width="600"
-            height="340"
-            src={mode === 'browser' ? browserVideoUrl : mobileVideoUrl}
-            title="Tutorial Video"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-            style={{ borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}
-          />
+          {isMobile ? (
+            <a
+              href={watchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ position: 'relative', display: 'inline-block', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.12)', width: '100%', maxWidth: 600 }}
+            >
+              <img src={thumbnailUrl} alt="Tutorial Video" style={{ width: '100%', display: 'block' }} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21" /></svg>
+                </div>
+              </div>
+            </a>
+          ) : (
+            <iframe
+              width="600"
+              height="340"
+              src={embedUrl}
+              title="Tutorial Video"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              style={{ borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}
+            />
+          )}
         </div>
         {/* Toggle */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
