@@ -37,9 +37,14 @@ export const howToStepsMobile = [
     text: 'Tap Start export to download.'
   },
   {
+    title: 'Wait for Instagram\'s Email',
+    text: 'Instagram will email you when your file is ready. *This can take 2-15 minutes. Once you receive it, download the file and upload it here to see who\'s fake!'
+  },
+  {
     title: 'Bonus: Faster Download',
     text: 'Select only "Followers and Following" for a faster download.'
   }
+  
 ];
 // This file maps the step images and text for the HowToSteps component
 export const howToSteps = [
@@ -78,6 +83,10 @@ export const howToSteps = [
   {
     title: 'Start Export',
     text: 'Tap Start export to begin downloading your data.'
+  },
+  {
+    title: 'Wait for Instagram\'s Email',
+    text: 'Instagram will email you when your file is ready. This can take 2-15 minutes. Once you receive it, download the file and upload it here to see who\'s fake!'
   },
   {
     title: 'Bonus: Faster Download',

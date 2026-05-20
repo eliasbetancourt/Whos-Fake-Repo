@@ -118,7 +118,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
           marginBottom: "1.5vw",
         }}
       >
-        ⚠️ Broken links may be due to a changed username or a deactivated/deleted account.
+        ⚠️ If a profile link is broken, the account was likely deleted or deactivated.
+        <br /> You can remove them from this list as they are not in your true following list.
       </p>
       <h3>Analysis Results</h3>
       <div
@@ -198,7 +199,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                 verticalAlign: "middle",
               }}
             >
-              Unfollow?
+              Unfollow
             </th>
             <th
               style={{

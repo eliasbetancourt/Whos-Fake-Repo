@@ -6,7 +6,7 @@ const Header: React.FC = () => (
     <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.2rem', maxWidth: 600, margin: '0 auto' }}>
       Discover who is not following you back on Instagram.
       <br />
-      9 Simple Steps! Instructions below.
+      10 Simple Steps! Instructions below.
     </p>
   </div>
 );
