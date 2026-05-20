@@ -63,6 +63,11 @@ export default function VideoSection() {
               target="_blank"
               rel="noopener noreferrer"
               style={{ position: 'relative', display: 'inline-block', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.12)', width: '100%', maxWidth: 600 }}
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = `youtube://watch?v=${videoId}`;
+                setTimeout(() => { window.open(watchUrl, '_blank', 'noopener,noreferrer'); }, 500);
+              }}
             >
               <img src={thumbnailUrl} alt="Tutorial Video" style={{ width: '100%', display: 'block' }} />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
