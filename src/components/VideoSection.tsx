@@ -44,11 +44,12 @@ export default function VideoSection() {
         background: 'white',
         borderRadius: 28,
         boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
-        padding: '48px 40px 32px 40px',
+        padding: 'clamp(16px, 5vw, 48px) clamp(12px, 4vw, 40px) clamp(16px, 3vw, 32px)',
         maxWidth: '720px',
         width: '98%',
         margin: '0 auto',
         textAlign: 'center',
+        boxSizing: 'border-box',
       }}>
         <h2 style={{ fontWeight: 700, fontSize: '2rem', marginBottom: 18 }}>
           {mode === 'browser'
@@ -71,16 +72,16 @@ export default function VideoSection() {
               </div>
             </a>
           ) : (
-            <iframe
-              width="600"
-              height="340"
-              src={embedUrl}
-              title="Tutorial Video"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              style={{ borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}
-            />
+            <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', height: 0, overflow: 'hidden', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+              <iframe
+                src={embedUrl}
+                title="Tutorial Video"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', borderRadius: 18 }}
+              />
+            </div>
           )}
         </div>
         {/* Toggle */}
