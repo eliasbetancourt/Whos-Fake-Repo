@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,11 +37,11 @@
             font-size: 3rem;
             font-weight: 700;
             margin-bottom: 10px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
 
         .header p {
-            color: rgba(255,255,255,0.9);
+            color: rgba(255, 255, 255, 0.9);
             font-size: 1.2rem;
             max-width: 600px;
             margin: 0 auto;
@@ -49,7 +50,7 @@
         .main-card {
             background: white;
             border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
             padding: 60px 40px;
             margin: 40px auto;
             max-width: 800px;
@@ -235,7 +236,7 @@
             border-radius: 20px;
             padding: 40px;
             margin-top: 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .instructions h2 {
@@ -338,7 +339,7 @@
             background: white;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
 
         .results-table th,
@@ -383,6 +384,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -394,7 +396,7 @@
             <div class="upload-zone" id="uploadZone">
                 <div class="upload-icon">📁</div>
                 <div class="upload-text">
-                    <h3>Upload Your Instagram Data</h3>
+                    <h3>Upload Your Instagram Export</h3>
                     <p>Drag and drop your Instagram ZIP file here, or click to browse</p>
                     <button class="choose-files-btn" id="chooseFilesBtn">Choose Files</button>
                 </div>
@@ -517,7 +519,7 @@
 
             handleFileSelect(files) {
                 const newFiles = Array.from(files);
-                
+
                 newFiles.forEach(file => {
                     if (!this.selectedFiles.find(f => f.name === file.name)) {
                         this.selectedFiles.push(file);
@@ -544,10 +546,10 @@
                 this.selectedFiles.forEach((file, index) => {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'file-item';
-                    
-                    const isSupported = this.supportedTypes.some(type => 
+
+                    const isSupported = this.supportedTypes.some(type =>
                         file.name.toLowerCase().endsWith(type));
-                    
+
                     fileItem.innerHTML = `
                         <div class="file-info">
                             <span class="file-icon">${isSupported ? '📄' : '❌'}</span>
@@ -558,12 +560,12 @@
                             <button class="action-btn remove-btn" onclick="whosFakeAnalyzer.removeFile(${index})">Remove</button>
                         </div>
                     `;
-                    
+
                     if (!isSupported) {
                         fileItem.style.backgroundColor = '#fef2f2';
                         fileItem.style.borderColor = '#fecaca';
                     }
-                    
+
                     fileItems.appendChild(fileItem);
                 });
 
@@ -571,12 +573,12 @@
             }
 
             validateFiles() {
-                const hasUnsupportedFiles = this.selectedFiles.some(file => 
+                const hasUnsupportedFiles = this.selectedFiles.some(file =>
                     !this.supportedTypes.some(type => file.name.toLowerCase().endsWith(type)));
-                
+
                 const warningBox = document.getElementById('warningBox');
                 const continueBtn = document.getElementById('continueBtn');
-                
+
                 if (hasUnsupportedFiles) {
                     warningBox.style.display = 'block';
                     continueBtn.disabled = true;
@@ -610,7 +612,7 @@
 
                 // Show progress
                 progressContainer.style.display = 'block';
-                
+
                 // Simulate processing steps
                 const steps = [
                     { progress: 20, text: 'Reading files...' },
@@ -686,7 +688,7 @@
                 });
 
                 resultsContainer.style.display = 'block';
-                
+
                 // Scroll to results
                 resultsContainer.scrollIntoView({ behavior: 'smooth' });
             }
@@ -696,4 +698,5 @@
         const whosFakeAnalyzer = new WhosFakeAnalyzer();
     </script>
 </body>
+
 </html>
