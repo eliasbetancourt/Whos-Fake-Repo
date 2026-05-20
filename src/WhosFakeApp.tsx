@@ -642,6 +642,26 @@ export default function WhosFakeApp() {
           />
           {processing && <ProgressBar progress={progress} progressText={progressText} />}
           {results && <ResultsTable results={results} />}
+          {!results && !processing && (
+            <div style={{ marginTop: '3vw', opacity: 0.6, pointerEvents: 'none', userSelect: 'none' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                <p style={{ textAlign: 'center', color: '#888', fontSize: '0.85rem', marginBottom: '1.5vw' }}>
+                  This is a preview of the results table. Upload your Instagram data to see real results!
+                  <br />
+                  *Links in the table will take you directly to each user's Instagram profiles.
+                </p>
+                <span style={{ background: '#e0e7ff', color: '#4338ca', borderRadius: 8, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 700, letterSpacing: 1 }}>PREVIEW — Upload your file to see real results</span>
+              </div>
+              <ResultsTable results={{
+                summary: { totalFollowers: 69, totalFollowing: 42, unfollowers: 3 },
+                unfollowers: [
+                  { username: 'example.user1', profileUrl: 'instagram.com/example.user1', timestamp: 1700000000 },
+                  { username: 'example.user2', profileUrl: 'instagram.com/example.user2', timestamp: 1710000000 },
+                  { username: 'example.user3', profileUrl: 'instagram.com/example.user3', timestamp: 1720000000 },
+                ]
+              }} />
+            </div>
+          )}
         </div>
         <VideoSection />
         <HowToSteps />

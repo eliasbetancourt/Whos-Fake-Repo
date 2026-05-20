@@ -99,13 +99,19 @@ function sanitizeDisplayName(value: unknown): string {
 
 interface ResultsTableProps {
   results: any;
+  showNotice?: boolean;
 }
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
+const ResultsTable: React.FC<ResultsTableProps> = ({ results, showNotice = false }) => {
   const [unfollowersList, setUnfollowersList] = useState(results.unfollowers);
+  const [crackedRows, setCrackedRows] = useState<Set<number>>(new Set());
 
   const handleRemoveUser = (index: number) => {
     setUnfollowersList((prev: any[]) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCrack = (index: number) => {
+    setCrackedRows(prev => new Set(prev).add(index));
   };
 
   return (
@@ -118,8 +124,10 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
           marginBottom: "1.5vw",
         }}
       >
-        ⚠️ If a profile link is broken, the account was likely deleted or deactivated.
-        <br /> You can remove them from this list as they are not in your true following list.
+        {showNotice && <>
+          ⚠️ Broken links point to hidden accounts that you follow that were likely deleted or deactivated.
+          <br /> You can remove them from this list as they are not in your true following list.
+        </>}
       </p>
       <h3>Analysis Results</h3>
       <div
@@ -292,30 +300,39 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                       target="_blank"
                       rel="noopener noreferrer nofollow"
                       referrerPolicy="no-referrer"
-                      style={{ display: "inline-block", verticalAlign: "middle" }}
+                      style={{ display: "inline-block", position: "relative", height: 44, width: 80 }}
+                      onClick={() => handleCrack(index)}
                     >
                       <img
-                        src="/cracked_following_button.png"
+                        src={crackedRows.has(index) ? "/crackedfollowingbutton.png" : "/folllowingbutton.png"}
                         alt="Unfollow"
                         style={{
-                          height: 44,
+                          height: 100,
                           width: "auto",
-                          verticalAlign: "middle",
                           cursor: "pointer",
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
                         }}
                       />
                     </a>
                   ) : (
-                    <img
-                      src="/cracked_following_button.png"
-                      alt="Unfollow (link unavailable)"
-                      style={{
-                        height: 44,
-                        width: "auto",
-                        verticalAlign: "middle",
-                        opacity: 0.4,
-                      }}
-                    />
+                    <div style={{ display: "inline-block", position: "relative", height: 44, width: 80 }}>
+                      <img
+                        src="/folllowingbutton.png"
+                        alt="Unfollow (link unavailable)"
+                        style={{
+                          height: 100,
+                          width: "auto",
+                          opacity: 0.4,
+                          position: "absolute",
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      />
+                    </div>
                   )}
                 </td>
                 <td
